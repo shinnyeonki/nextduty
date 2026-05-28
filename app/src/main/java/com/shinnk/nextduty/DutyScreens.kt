@@ -31,87 +31,93 @@ fun DutyApp(
 ) {
     var isEditing by remember { mutableStateOf(false) }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .navigationBarsPadding()
-            ) {
-                // Top Action Bar with Toggle
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (isAppActive) "서비스 활성화됨" else "서비스 일시 정지",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = if (isAppActive) MaterialTheme.colorScheme.primary else Color.Gray,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Switch(
-                        modifier = Modifier.scale(0.8f),
-                        checked = isAppActive,
-                        onCheckedChange = onSaveAppActiveStatus
-                    )
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp)
-
-                // Main Content
-                Box(modifier = Modifier.weight(1f)) {
-                    if (dutySettings == null || isEditing) {
-                        InputScreen(
-                            initialTime = dutySettings?.time ?: "JU1",
-                            initialTable = dutySettings?.table ?: 1,
-                            initialNumber = dutySettings?.number ?: 1,
-                            ptStatus = ptStatus,
-                            onSaveSettings = { time, table, number ->
-                                onSaveSettings(time, table, number)
-                                isEditing = false
-                            },
-                            onSavePtStatus = onSavePtStatus
-                        )
-                    } else {
-                        StatusScreen(dutySettings, onEdit = {
-                            isEditing = true
-                            onEdit()
-                        })
-                    }
-                }
+    Scaffold(
+        topBar = {
+            TopActionBar(
+                isAppActive = isAppActive,
+                onToggleActive = onSaveAppActiveStatus
+            )
+        },
+        modifier = Modifier.fillMaxSize()
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // Main Content
+            if (dutySettings == null || isEditing) {
+                InputScreen(
+                    initialSettings = dutySettings,
+                    ptStatus = ptStatus,
+                    onSave = { time, table, number ->
+                        onSaveSettings(time, table, number)
+                        isEditing = false
+                    },
+                    onSavePtStatus = onSavePtStatus
+                )
+            } else {
+                StatusScreen(dutySettings, onEdit = {
+                    isEditing = true
+                    onEdit()
+                })
             }
 
             // Inactive Overlay
             if (!isAppActive) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 80.dp) // Keep the top toggle area clear
-                        .clickable(enabled = false) { }, // Block all clicks below
-                    color = Color.Black.copy(alpha = 0.4f)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            shape = RoundedCornerShape(16.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                        ) {
-                            Text(
-                                "서비스가 정지되었습니다",
-                                modifier = Modifier.padding(24.dp),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
+                InactiveOverlay()
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopActionBar(isAppActive: Boolean, onToggleActive: (Boolean) -> Unit) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isAppActive) "서비스 활성화됨" else "서비스 일시 정지",
+                style = MaterialTheme.typography.titleSmall,
+                color = if (isAppActive) MaterialTheme.colorScheme.primary else Color.Gray,
+                fontWeight = FontWeight.Bold
+            )
+            Switch(
+                modifier = Modifier.scale(0.8f),
+                checked = isAppActive,
+                onCheckedChange = onToggleActive
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp)
+    }
+}
+
+@Composable
+private fun InactiveOverlay() {
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(enabled = false) { },
+        color = Color.Black.copy(alpha = 0.4f)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Text(
+                    "서비스가 정지되었습니다",
+                    modifier = Modifier.padding(24.dp),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -119,106 +125,71 @@ fun DutyApp(
 
 @Composable
 fun InputScreen(
-    initialTime: String = "JU1",
-    initialTable: Int = 1,
-    initialNumber: Int = 1,
+    initialSettings: DutySettings?,
     ptStatus: Boolean,
-    onSaveSettings: (String, Int, Int) -> Unit,
+    onSave: (String, Int, Int) -> Unit,
     onSavePtStatus: (Boolean) -> Unit
 ) {
-    var selectedTime by remember { mutableStateOf(initialTime) }
-    var selectedTable by remember { mutableIntStateOf(initialTable) }
-    var selectedNumber by remember { mutableIntStateOf(initialNumber) }
+    var selectedTime by remember { mutableStateOf(initialSettings?.time ?: "JU1") }
+    var selectedTable by remember { mutableIntStateOf(initialSettings?.table ?: 1) }
+    var selectedNumber by remember { mutableIntStateOf(initialSettings?.number ?: 1) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 20.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.Top
+            .padding(24.dp)
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
     ) {
-        Text(
-            "근무 설정",
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(32.dp))
+        Text("근무 설정", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(32.dp))
 
         SettingsSection("근무 시간") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                DutyRadioButton(
-                    label = "주1",
-                    selected = selectedTime == "JU1",
-                    onClick = { selectedTime = "JU1" }
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                DutyRadioButton(
-                    label = "주2",
-                    selected = selectedTime == "JU2",
-                    onClick = { selectedTime = "JU2" }
-                )
+            Row {
+                listOf("주1" to "JU1", "주2" to "JU2").forEach { (label, value) ->
+                    DutyRadioButton(label, selectedTime == value) { selectedTime = value }
+                    Spacer(Modifier.width(16.dp))
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
+        Spacer(Modifier.height(24.dp))
         SettingsSection("편성표 번호") {
             Row {
                 (1..4).forEach { i ->
-                    DutyRadioButton(
-                        label = i.toString(),
-                        selected = selectedTable == i,
-                        onClick = { selectedTable = i }
-                    )
-                    if (i < 4) Spacer(modifier = Modifier.width(8.dp))
+                    DutyRadioButton(i.toString(), selectedTable == i) { selectedTable = i }
+                    if (i < 4) Spacer(Modifier.width(8.dp))
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
+        Spacer(Modifier.height(24.dp))
         SettingsSection("나의 근무 번호") {
             Row {
                 (1..4).forEach { i ->
-                    DutyRadioButton(
-                        label = i.toString(),
-                        selected = selectedNumber == i,
-                        onClick = { selectedNumber = i }
-                    )
-                    if (i < 4) Spacer(modifier = Modifier.width(8.dp))
+                    DutyRadioButton(i.toString(), selectedNumber == i) { selectedNumber = i }
+                    if (i < 4) Spacer(Modifier.width(8.dp))
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
+        Spacer(Modifier.height(24.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(Modifier.padding(16.dp).fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                 Text("PT 인가요?", fontWeight = FontWeight.Medium)
                 Switch(checked = ptStatus, onCheckedChange = onSavePtStatus)
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
-        Spacer(modifier = Modifier.height(32.dp))
-
+        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(32.dp))
         Button(
-            onClick = { onSaveSettings(selectedTime, selectedTable, selectedNumber) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
+            onClick = { onSave(selectedTime, selectedTable, selectedNumber) },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(16.dp)
         ) {
             Text("저장 및 근무 시작", style = MaterialTheme.typography.titleMedium)
@@ -227,27 +198,7 @@ fun InputScreen(
 }
 
 @Composable
-fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Column {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = Color.Gray)
-        Spacer(modifier = Modifier.height(8.dp))
-        content()
-    }
-}
-
-@Composable
-fun DutyRadioButton(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(selected = selected, onClick = onClick)
-        Text(label, modifier = Modifier.padding(start = 4.dp))
-    }
-}
-
-@Composable
-fun StatusScreen(
-    settings: DutySettings,
-    onEdit: () -> Unit
-) {
+fun StatusScreen(settings: DutySettings, onEdit: () -> Unit) {
     var currentTime by remember { mutableStateOf(LocalTime.now()) }
     
     LaunchedEffect(Unit) {
@@ -257,166 +208,148 @@ fun StatusScreen(
         }
     }
 
+    val (currentLocation, currentRange, nextLocation, nextStartTime, remaining) = remember(currentTime, settings) {
+        calculateDutyInfo(currentTime, settings)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .navigationBarsPadding(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = currentTime.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
+            style = MaterialTheme.typography.displayLarge,
+            fontWeight = FontWeight.Bold
+        )
+        
+        Spacer(Modifier.height(40.dp))
+        
+        DutyCard(
+            title = "현재 근무지",
+            location = currentLocation,
+            range = currentRange,
+            isHighlight = true
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        DutyCard(
+            title = "다음 근무지",
+            location = nextLocation,
+            range = nextStartTime,
+            isHighlight = false
+        )
+
+        Spacer(Modifier.height(40.dp))
+        
+        Text("퇴근까지 남은 시간", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+        Text(
+            text = formatDuration(remaining),
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Medium,
+            color = if (remaining.isZero) Color.Gray else MaterialTheme.colorScheme.error
+        )
+
+        Spacer(Modifier.weight(1f))
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "현재 설정: ${if(settings.time == "JU1") "주1" else "주2"} | 편성표 ${settings.table} | 번호 ${settings.number} | PT ${if(settings.isPt) "O" else "X"}",
+                style = MaterialTheme.typography.bodyMedium, color = Color.Gray
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(onClick = onEdit, Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                Text("옵션 수정")
+            }
+        }
+    }
+}
+
+@Composable
+private fun DutyCard(title: String, location: String, range: String, isHighlight: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isHighlight) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = if (isHighlight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        shape = RoundedCornerShape(if (isHighlight) 24.dp else 20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlight) 4.dp else 0.dp)
+    ) {
+        Column(Modifier.padding(if (isHighlight) 24.dp else 20.dp)) {
+            Text(title, style = if (isHighlight) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium)
+            Spacer(Modifier.height(8.dp))
+            Text(location, style = if (isHighlight) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            if (range.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(range, style = if (isHighlight) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsSection(title: String, content: @Composable () -> Unit) {
+    Column {
+        Text(title, style = MaterialTheme.typography.titleSmall, color = Color.Gray)
+        Spacer(Modifier.height(8.dp))
+        content()
+    }
+}
+
+@Composable
+fun DutyRadioButton(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        RadioButton(selected = selected, onClick = onClick)
+        Text(label, Modifier.padding(start = 4.dp))
+    }
+}
+
+private data class DutyInfo(
+    val currentLoc: String,
+    val currentRange: String,
+    val nextLoc: String,
+    val nextStart: String,
+    val remaining: Duration
+)
+
+private fun calculateDutyInfo(currentTime: LocalTime, settings: DutySettings): DutyInfo {
     val tableKey = "${settings.time}_${settings.table}"
     val timeSlots = DutyMasterData.totalMap[tableKey] ?: emptyList()
     
-    // PT Time adjustments
     val isPt = settings.isPt
-    val actualShiftStart = if (isPt && settings.time == "JU2") LocalTime.of(11, 30) else {
-        if (settings.time == "JU1") LocalTime.of(8, 0) else LocalTime.of(11, 0)
-    }
-    val actualShiftEnd = if (isPt && settings.time == "JU1") LocalTime.of(16, 30) else {
-        if (settings.time == "JU1") LocalTime.of(17, 0) else LocalTime.of(20, 0)
-    }
+    val shiftStart = if (isPt && settings.time == "JU2") LocalTime.of(11, 30) else (if (settings.time == "JU1") LocalTime.of(8, 0) else LocalTime.of(11, 0))
+    val shiftEnd = if (isPt && settings.time == "JU1") LocalTime.of(16, 30) else (if (settings.time == "JU1") LocalTime.of(17, 0) else LocalTime.of(20, 0))
 
-    // Determine Current Location
-    val currentLocation: String
-    val currentRange: String
-    
-    when {
-        currentTime.isBefore(actualShiftStart) -> {
-            currentLocation = "출근 전"
-            currentRange = "시작 시간: $actualShiftStart"
-        }
-        !currentTime.isBefore(actualShiftEnd) -> {
-            currentLocation = "업무 종료"
-            currentRange = "퇴근 완료"
-        }
+    val (currLoc, currRange) = when {
+        currentTime.isBefore(shiftStart) -> "출근 전" to "시작 시간: $shiftStart"
+        !currentTime.isBefore(shiftEnd) -> "업무 종료" to "퇴근 완료"
         else -> {
             val slot = timeSlots.find { s ->
                 val start = LocalTime.parse(s.startTime)
                 val end = LocalTime.parse(s.endTime)
                 !currentTime.isBefore(start) && currentTime.isBefore(end)
             }
-            currentLocation = slot?.locations?.getOrNull(settings.number - 1) ?: "근무 외 시간"
-            currentRange = slot?.let { "${it.startTime} ~ ${it.endTime}" } ?: ""
+            (slot?.locations?.getOrNull(settings.number - 1) ?: "근무 외 시간") to (slot?.let { "${it.startTime} ~ ${it.endTime}" } ?: "")
         }
     }
 
-    // Determine Next Location
-    val nextLocation: String
-    val nextStartTime: String
-    
-    val nextSlot = timeSlots.find { s ->
-        val start = LocalTime.parse(s.startTime)
-        currentTime.isBefore(start)
-    }
-    
-    if (nextSlot != null && LocalTime.parse(nextSlot.startTime).isBefore(actualShiftEnd)) {
-        nextLocation = nextSlot.locations.getOrNull(settings.number - 1) ?: "없음"
-        nextStartTime = "시작 예정: ${nextSlot.startTime}"
+    val nextSlot = timeSlots.find { currentTime.isBefore(LocalTime.parse(it.startTime)) }
+    val (nLoc, nStart) = if (nextSlot != null && LocalTime.parse(nextSlot.startTime).isBefore(shiftEnd)) {
+        (nextSlot.locations.getOrNull(settings.number - 1) ?: "없음") to "시작 예정: ${nextSlot.startTime}"
     } else {
-        nextLocation = "없음 (퇴근 예정)"
-        nextStartTime = "수고하셨습니다"
+        "없음 (퇴근 예정)" to "수고하셨습니다"
     }
 
-    val remainingDuration = if (currentTime.isBefore(actualShiftEnd)) {
-        Duration.between(currentTime, actualShiftEnd)
-    } else {
-        Duration.ZERO
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top
-    ) {
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Text(
-            text = currentTime.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
-            style = MaterialTheme.typography.displayLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        
-        Spacer(modifier = Modifier.height(40.dp))
-
-        // Current Duty Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-            shape = RoundedCornerShape(24.dp)
-        ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text("현재 근무지", style = MaterialTheme.typography.labelLarge)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = currentLocation,
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                if (currentRange.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        currentRange,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Next Duty Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text("다음 근무지", style = MaterialTheme.typography.labelMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = nextLocation,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(nextStartTime, style = MaterialTheme.typography.bodySmall)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(40.dp))
-        
-        Text("퇴근까지 남은 시간", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
-        Text(
-            text = String.format(
-                Locale.getDefault(),
-                "%02d:%02d:%02d",
-                remainingDuration.toHours(),
-                remainingDuration.toMinutesPart(),
-                remainingDuration.toSecondsPart()
-            ),
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Medium,
-            color = if (remainingDuration.isZero) Color.Gray else MaterialTheme.colorScheme.error
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Settings Summary and Edit Button
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "현재 설정: ${if(settings.time == "JU1") "주1" else "주2"} | 편성표 ${settings.table} | 나의 근무 번호 ${settings.number} | PT ${if(isPt) "O" else "X"}",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = Color.Gray
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedButton(
-                onClick = onEdit,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text("옵션 수정")
-            }
-        }
-    }
+    val remaining = if (currentTime.isBefore(shiftEnd)) Duration.between(currentTime, shiftEnd) else Duration.ZERO
+    
+    return DutyInfo(currLoc, currRange, nLoc, nStart, remaining)
 }
+
+private fun formatDuration(duration: Duration): String = String.format(
+    Locale.getDefault(), "%02d:%02d:%02d",
+    duration.toHours(), duration.toMinutesPart(), duration.toSecondsPart()
+)

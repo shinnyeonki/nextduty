@@ -65,20 +65,36 @@ class MainActivity : ComponentActivity() {
         setContent {
             val dutySettings by preferenceManager.dutySettings.collectAsState(initial = null)
             val ptStatus by preferenceManager.ptStatus.collectAsState(initial = false)
+            val isAppActive by preferenceManager.isAppActive.collectAsState(initial = true)
 
             DutyApp(
                 dutySettings = dutySettings,
                 ptStatus = ptStatus,
+                isAppActive = isAppActive,
                 onSaveSettings = { time, table, number ->
                     lifecycleScope.launch {
                         // Capture the current ptStatus when saving settings
                         preferenceManager.saveDutySettings(time, table, number, ptStatus)
-                        scheduleAlarms(time, table, number, ptStatus)
+                        if (isAppActive) {
+                            scheduleAlarms(time, table, number, ptStatus)
+                        }
                     }
                 },
                 onSavePtStatus = { status ->
                     lifecycleScope.launch {
                         preferenceManager.savePtStatus(status)
+                    }
+                },
+                onSaveAppActiveStatus = { isActive ->
+                    lifecycleScope.launch {
+                        preferenceManager.saveAppActiveStatus(isActive)
+                        if (isActive) {
+                            dutySettings?.let { settings ->
+                                scheduleAlarms(settings.time, settings.table, settings.number, settings.isPt)
+                            }
+                        } else {
+                            cancelAllAlarms()
+                        }
                     }
                 },
                 onEdit = {

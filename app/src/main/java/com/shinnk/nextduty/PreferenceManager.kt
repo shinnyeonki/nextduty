@@ -18,6 +18,11 @@ class PreferenceManager(private val context: Context) {
         val DUTY_TABLE = intPreferencesKey("duty_table") // 1, 2, 3, 4
         val DUTY_NUMBER = intPreferencesKey("duty_number") // 1, 2, 3, 4
         val LAST_SAVED_DATE = stringPreferencesKey("last_saved_date")
+        val IS_APP_ACTIVE = booleanPreferencesKey("is_app_active")
+    }
+
+    val isAppActive: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[IS_APP_ACTIVE] ?: true
     }
 
     val ptStatus: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -42,6 +47,12 @@ class PreferenceManager(private val context: Context) {
     suspend fun savePtStatus(status: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PT_STATUS] = status
+        }
+    }
+
+    suspend fun saveAppActiveStatus(isActive: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[IS_APP_ACTIVE] = isActive
         }
     }
 

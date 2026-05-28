@@ -1,5 +1,6 @@
 package com.shinnk.nextduty
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -8,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -21,8 +23,10 @@ import java.util.Locale
 fun DutyApp(
     dutySettings: DutySettings?,
     ptStatus: Boolean,
+    isAppActive: Boolean,
     onSaveSettings: (String, Int, Int) -> Unit,
     onSavePtStatus: (Boolean) -> Unit,
+    onSaveAppActiveStatus: (Boolean) -> Unit,
     onEdit: () -> Unit,
 ) {
     var isEditing by remember { mutableStateOf(false) }
@@ -31,23 +35,84 @@ fun DutyApp(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        if (dutySettings == null || isEditing) {
-            InputScreen(
-                initialTime = dutySettings?.time ?: "JU1",
-                initialTable = dutySettings?.table ?: 1,
-                initialNumber = dutySettings?.number ?: 1,
-                ptStatus = ptStatus,
-                onSaveSettings = { time, table, number ->
-                    onSaveSettings(time, table, number)
-                    isEditing = false
-                },
-                onSavePtStatus = onSavePtStatus
-            )
-        } else {
-            StatusScreen(dutySettings, onEdit = {
-                isEditing = true
-                onEdit()
-            })
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+            ) {
+                // Top Action Bar with Toggle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isAppActive) "서비스 활성화됨" else "서비스 일시 정지",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (isAppActive) MaterialTheme.colorScheme.primary else Color.Gray,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Switch(
+                        modifier = Modifier.scale(0.8f),
+                        checked = isAppActive,
+                        onCheckedChange = onSaveAppActiveStatus
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp)
+
+                // Main Content
+                Box(modifier = Modifier.weight(1f)) {
+                    if (dutySettings == null || isEditing) {
+                        InputScreen(
+                            initialTime = dutySettings?.time ?: "JU1",
+                            initialTable = dutySettings?.table ?: 1,
+                            initialNumber = dutySettings?.number ?: 1,
+                            ptStatus = ptStatus,
+                            onSaveSettings = { time, table, number ->
+                                onSaveSettings(time, table, number)
+                                isEditing = false
+                            },
+                            onSavePtStatus = onSavePtStatus
+                        )
+                    } else {
+                        StatusScreen(dutySettings, onEdit = {
+                            isEditing = true
+                            onEdit()
+                        })
+                    }
+                }
+            }
+
+            // Inactive Overlay
+            if (!isAppActive) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = 80.dp) // Keep the top toggle area clear
+                        .clickable(enabled = false) { }, // Block all clicks below
+                    color = Color.Black.copy(alpha = 0.4f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            shape = RoundedCornerShape(16.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                        ) {
+                            Text(
+                                "서비스가 정지되었습니다",
+                                modifier = Modifier.padding(24.dp),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -68,8 +133,7 @@ fun InputScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .systemBarsPadding()
-            .padding(24.dp)
+            .padding(horizontal = 24.dp, vertical = 20.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Top
@@ -255,12 +319,11 @@ fun StatusScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .systemBarsPadding()
-            .padding(24.dp),
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
         Text(
             text = currentTime.format(DateTimeFormatter.ofPattern("HH:mm:ss")),

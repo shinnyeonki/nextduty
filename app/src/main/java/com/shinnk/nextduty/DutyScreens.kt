@@ -1,18 +1,28 @@
 package com.shinnk.nextduty
 
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -38,6 +48,7 @@ fun DutyApp(
                 onToggleActive = onSaveAppActiveStatus
             )
         },
+        containerColor = MaterialTheme.colorScheme.background,
         modifier = Modifier.fillMaxSize()
     ) { padding ->
         Box(
@@ -64,7 +75,11 @@ fun DutyApp(
             }
 
             // Inactive Overlay
-            if (!isAppActive) {
+            AnimatedVisibility(
+                visible = !isAppActive,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
                 InactiveOverlay()
             }
         }
@@ -73,28 +88,46 @@ fun DutyApp(
 
 @Composable
 private fun TopActionBar(isAppActive: Boolean, onToggleActive: (Boolean) -> Unit) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (isAppActive) "서비스 활성화됨" else "서비스 일시 정지",
-                style = MaterialTheme.typography.titleSmall,
-                color = if (isAppActive) MaterialTheme.colorScheme.primary else Color.Gray,
-                fontWeight = FontWeight.Bold
-            )
-            Switch(
-                modifier = Modifier.scale(0.8f),
-                checked = isAppActive,
-                onCheckedChange = onToggleActive
-            )
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = if (isAppActive) MaterialTheme.colorScheme.primary else Color.Gray,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (isAppActive) "서비스 활성 상태" else "서비스 중지 상태",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (isAppActive) MaterialTheme.colorScheme.onSurface else Color.Gray,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Switch(
+                    modifier = Modifier.scale(0.85f),
+                    checked = isAppActive,
+                    onCheckedChange = onToggleActive,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp)
     }
 }
 
@@ -104,20 +137,50 @@ private fun InactiveOverlay() {
         modifier = Modifier
             .fillMaxSize()
             .clickable(enabled = false) { },
-        color = Color.Black.copy(alpha = 0.4f)
+        color = Color.Black.copy(alpha = 0.55f)
     ) {
         Box(contentAlignment = Alignment.Center) {
             Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .padding(bottom = 64.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                shape = RoundedCornerShape(28.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
             ) {
-                Text(
-                    "서비스가 정지되었습니다",
-                    modifier = Modifier.padding(24.dp),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(
+                    modifier = Modifier.padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
+                        shape = CircleShape,
+                        modifier = Modifier.size(64.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        "서비스가 정지되었습니다",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "상단의 스위치를 켜면 다시 알림과 근무 확인이 시작됩니다.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
@@ -141,59 +204,92 @@ fun InputScreen(
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
     ) {
-        Text("근무 설정", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(
+            "오늘의 근무 설정",
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.ExtraBold
+        )
+        
         Spacer(Modifier.height(32.dp))
 
-        SettingsSection("근무 시간") {
-            Row {
-                listOf("주1" to "JU1", "주2" to "JU2").forEach { (label, value) ->
-                    DutyRadioButton(label, selectedTime == value) { selectedTime = value }
-                    Spacer(Modifier.width(16.dp))
+        SettingsModernSection("근무 시간") {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                listOf("주간1" to "JU1", "주간2" to "JU2").forEach { (label, value) ->
+                    ModernSelectableChip(
+                        label = label,
+                        selected = selectedTime == value,
+                        onClick = { selectedTime = value },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
 
         Spacer(Modifier.height(24.dp))
-        SettingsSection("편성표 번호") {
-            Row {
+        
+        SettingsModernSection("편성표 번호") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (1..4).forEach { i ->
-                    DutyRadioButton(i.toString(), selectedTable == i) { selectedTable = i }
-                    if (i < 4) Spacer(Modifier.width(8.dp))
+                    ModernSelectableChip(
+                        label = i.toString(),
+                        selected = selectedTable == i,
+                        onClick = { selectedTable = i },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
 
         Spacer(Modifier.height(24.dp))
-        SettingsSection("나의 근무 번호") {
-            Row {
+        
+        SettingsModernSection("나의 근무 번호") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (1..4).forEach { i ->
-                    DutyRadioButton(i.toString(), selectedNumber == i) { selectedNumber = i }
-                    if (i < 4) Spacer(Modifier.width(8.dp))
+                    ModernSelectableChip(
+                        label = i.toString(),
+                        selected = selectedNumber == i,
+                        onClick = { selectedNumber = i },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(32.dp))
+        
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            shape = RoundedCornerShape(16.dp)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         ) {
-            Row(Modifier.padding(16.dp).fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                Text("PT 인가요?", fontWeight = FontWeight.Medium)
+            Row(
+                modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("PT 여부", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("오늘 PT 근무인가요?", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
                 Switch(checked = ptStatus, onCheckedChange = onSavePtStatus)
             }
         }
 
-        Spacer(Modifier.weight(1f))
         Spacer(Modifier.height(32.dp))
+        
         Button(
             onClick = { onSave(selectedTime, selectedTable, selectedNumber) },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp),
+            shape = RoundedCornerShape(20.dp),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
         ) {
-            Text("저장 및 근무 시작", style = MaterialTheme.typography.titleMedium)
+            Text("저장 및 서비스 시작", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
+        
+        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -219,95 +315,203 @@ fun StatusScreen(settings: DutySettings, onEdit: () -> Unit) {
             .navigationBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Modern Clock
         Text(
-            text = currentTime.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(fontWeight = FontWeight.Black)) {
+                    append(currentTime.format(DateTimeFormatter.ofPattern("HH:mm")))
+                }
+                withStyle(SpanStyle(fontWeight = FontWeight.Light, fontSize = 24.sp, color = Color.Gray)) {
+                    append(":" + currentTime.format(DateTimeFormatter.ofPattern("ss")))
+                }
+            },
             style = MaterialTheme.typography.displayLarge,
-            fontWeight = FontWeight.Bold
+            fontSize = 72.sp
         )
         
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(24.dp))
         
-        DutyCard(
-            title = "현재 근무지",
+        ModernDutyCard(
+            title = "현재 나의 근무지",
             location = currentLocation,
             range = currentRange,
-            isHighlight = true
+            isHighlight = true,
+            icon = Icons.Default.LocationOn
         )
 
         Spacer(Modifier.height(16.dp))
 
-        DutyCard(
-            title = "다음 근무지",
+        ModernDutyCard(
+            title = "다음 예정 근무지",
             location = nextLocation,
             range = nextStartTime,
-            isHighlight = false
+            isHighlight = false,
+            icon = Icons.Default.Info
         )
 
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(24.dp))
         
-        Text("퇴근까지 남은 시간", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
-        Text(
-            text = formatDuration(remaining),
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Medium,
-            color = if (remaining.isZero) Color.Gray else MaterialTheme.colorScheme.error
-        )
+        // Countdown Section
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 32.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("퇴근까지 남은 시간", style = MaterialTheme.typography.labelLarge, color = Color.Gray)
+                Text(
+                    text = formatDuration(remaining),
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (remaining.isZero) Color.Gray else MaterialTheme.colorScheme.primary,
+                    letterSpacing = 2.sp
+                )
+            }
+        }
 
         Spacer(Modifier.weight(1f))
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "현재 설정: ${if(settings.time == "JU1") "주1" else "주2"} | 편성표 ${settings.table} | 번호 ${settings.number} | PT ${if(settings.isPt) "O" else "X"}",
-                style = MaterialTheme.typography.bodyMedium, color = Color.Gray
-            )
-            Spacer(Modifier.height(12.dp))
-            OutlinedButton(onClick = onEdit, Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-                Text("옵션 수정")
+        // Info Summary Footer
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "${if(settings.time == "JU1") "주간1" else "주간2"} | 편성표 ${settings.table}번 | 번호 ${settings.number}번",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if(settings.isPt) "PT 근무 적용됨" else "일반 근무 적용됨",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
+                IconButton(
+                    onClick = onEdit,
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun DutyCard(title: String, location: String, range: String, isHighlight: Boolean) {
+private fun ModernDutyCard(
+    title: String, 
+    location: String, 
+    range: String, 
+    isHighlight: Boolean,
+    icon: ImageVector
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (isHighlight) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = if (isHighlight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            containerColor = if (isHighlight) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ),
-        shape = RoundedCornerShape(if (isHighlight) 24.dp else 20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlight) 4.dp else 0.dp)
+        shape = RoundedCornerShape(28.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlight) 6.dp else 0.dp),
+        border = if (!isHighlight) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)) else null
     ) {
-        Column(Modifier.padding(if (isHighlight) 24.dp else 20.dp)) {
-            Text(title, style = if (isHighlight) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelMedium)
-            Spacer(Modifier.height(8.dp))
-            Text(location, style = if (isHighlight) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            if (range.isNotEmpty()) {
+        Row(
+            modifier = Modifier.padding(24.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title, 
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isHighlight) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else Color.Gray
+                )
                 Spacer(Modifier.height(4.dp))
-                Text(range, style = if (isHighlight) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall)
+                Text(
+                    text = location, 
+                    style = MaterialTheme.typography.headlineSmall, 
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (isHighlight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (range.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Settings, // Logic icon for shift
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = if (isHighlight) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f) else Color.Gray
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = range, 
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (isHighlight) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f) else Color.Gray
+                        )
+                    }
+                }
             }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp),
+                tint = if (isHighlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+            )
         }
     }
 }
 
 @Composable
-fun SettingsSection(title: String, content: @Composable () -> Unit) {
+private fun ModernSelectableChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            width = if (selected) 0.dp else 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        ),
+        tonalElevation = if (selected) 4.dp else 0.dp
+    ) {
+        Box(
+            modifier = Modifier.padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsModernSection(title: String, content: @Composable () -> Unit) {
     Column {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = Color.Gray)
-        Spacer(Modifier.height(8.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
         content()
     }
 }
 
-@Composable
-fun DutyRadioButton(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(selected = selected, onClick = onClick)
-        Text(label, Modifier.padding(start = 4.dp))
-    }
-}
-
+// Logic remain exactly the same
 private data class DutyInfo(
     val currentLoc: String,
     val currentRange: String,

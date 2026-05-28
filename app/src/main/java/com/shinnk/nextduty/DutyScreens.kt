@@ -270,7 +270,7 @@ fun InputScreen(
             ) {
                 Column {
                     Text("PT 여부", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("오늘 PT 근무인가요?", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text("PT 인가요?", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
                 Switch(checked = ptStatus, onCheckedChange = onSavePtStatus)
             }

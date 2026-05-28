@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 축소된 가느다란 원형 다이얼 (반지름 38 -> 30) -->
+    <path
+        android:strokeColor="#33D4AF37"
+        android:strokeWidth="1.2"
+        android:pathData="M54,54m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0" />
+
+    <!-- 축소된 인덱스 (위치 조정) -->
+    <path
+        android:fillColor="#D4AF37"
+        android:pathData="M53.5,24h1v6h-1z M53.5,78h1v6h-1z M24,53.5h6v1h-6z M78,53.5h6v1h-6z" />
+
+    <!-- 정교한 시계 바늘 (비율에 맞춰 축소) -->
+    <!-- 메인 골드 바늘 -->
+    <path
+        android:fillColor="#D4AF37"
+        android:pathData="M54,54 L52.5,51 L54,35 L55.5,51 Z" />
+
+    <!-- 보조 소프트 화이트 바늘 -->
+    <path
+        android:fillColor="#E0E0E0"
+        android:pathData="M54,54 L56.5,55.5 L68,60 L58,57 Z" />
+
+    <!-- 중앙 피벗 (반지름 3.5 -> 2.8) -->
+    <path
+        android:fillColor="#D4AF37"
+        android:pathData="M54,54m-2.8,0a2.8,2.8 0,1 1,5.6 0a2.8,2.8 0,1 1,-5.6 0" />
+
+    <!-- 피벗 중심점 -->
+    <path
+        android:fillColor="#101418"
+        android:pathData="M54,54m-0.8,0a0.8,0 0,1 1,1.6 0a0.8,0 0,1 1,-1.6 0" />
+
+</vector>

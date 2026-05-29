@@ -34,6 +34,17 @@ class AlarmCenter(private val context: Context) {
         val now = LocalTime.now()
         val today = LocalDate.now()
 
+        // 알람 상태바 아이콘을 클릭했을 때 열릴 화면 설정
+        val showAppIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val showAppPendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            showAppIntent,
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
         timeSlots.forEachIndexed { index, slot ->
             val startTime = LocalTime.parse(slot.startTime)
             var alarmTime = startTime.minusMinutes(5)
@@ -61,15 +72,9 @@ class AlarmCenter(private val context: Context) {
 
                 val triggerAtMillis = alarmTime.atDate(today).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (alarmManager.canScheduleExactAlarms()) {
-                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                    } else {
-                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                    }
-                } else {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
-                }
+                // setAlarmClock을 사용하여 시스템 알람 수준의 우선순위 부여
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showAppPendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
             }
         }
     }
@@ -87,6 +92,7 @@ class AlarmCenter(private val context: Context) {
 
     fun showAlarmNotification(location: String, startTime: String) {
         val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val audioAttributes = AudioAttributes.Builder()
@@ -95,17 +101,18 @@ class AlarmCenter(private val context: Context) {
                 .build()
 
             val channel = NotificationChannel(CHANNEL_ID, "근무 알람 (긴급)", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "근무 시작 전 강력한 알림"
+                description = "근무 시작 전 강력한 알람"
                 enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 200, 500)
                 setSound(alarmSound, audioAttributes)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                setBypassDnd(true) // 방해 금지 모드 무시 설정
+                setBypassDnd(true) // 방해 금지 모드 무시
             }
             notificationManager.createNotificationChannel(channel)
         }
 
         val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_USER_ACTION
             putExtra("location", location)
             putExtra("startTime", startTime)
         }
@@ -119,12 +126,14 @@ class AlarmCenter(private val context: Context) {
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("근무 이동 알림 (5분 전)")
             .setContentText("[$startTime] $location 이동 준비하세요!")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_MAX) // 최대 우선순위
+            .setCategory(NotificationCompat.CATEGORY_ALARM) // 알람 카테고리 설정
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(false) // 사용자가 확인하기 전까지 유지
+            .setOngoing(true) // 스와이프로 삭제 불가
             .setSound(alarmSound)
             .setContentIntent(pendingIntent)
-            .setFullScreenIntent(pendingIntent, true)
+            .setFullScreenIntent(pendingIntent, true) // 화면이 꺼져있을 때 즉시 화면을 띄움
             .build()
 
         notification.flags = notification.flags or Notification.FLAG_INSISTENT

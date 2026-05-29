@@ -26,8 +26,7 @@ class AlarmCenter(private val context: Context) {
     }
 
     fun scheduleAlarms(time: String, table: Int, number: Int, isPt: Boolean) {
-        val tableKey = "${time}_$table"
-        val timeSlots = DutyCore.totalMap[tableKey] ?: return
+        val alarms = DutyCore.getAlarmSchedules(time, table, number, isPt)
         
         cancelAllAlarms()
 
@@ -45,22 +44,11 @@ class AlarmCenter(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE
         )
 
-        timeSlots.forEachIndexed { index, slot ->
-            val startTime = LocalTime.parse(slot.startTime)
-            var alarmTime = startTime.minusMinutes(5)
-            
-            if (isPt) {
-                if (time == "JU2" && slot.startTime == "11:00") {
-                    alarmTime = LocalTime.of(11, 25)
-                } else if (time == "JU1" && !startTime.isBefore(LocalTime.of(16, 30))) {
-                    return@forEachIndexed
-                }
-            }
-            
-            if (alarmTime.isAfter(now)) {
+        alarms.forEachIndexed { index, alarm ->
+            if (alarm.triggerTime.isAfter(now)) {
                 val intent = Intent(context, AlarmReceiver::class.java).apply {
-                    putExtra("location", slot.locations.getOrNull(number - 1))
-                    putExtra("startTime", if (isPt && time == "JU2" && slot.startTime == "11:00") "11:30" else slot.startTime)
+                    putExtra("location", alarm.location)
+                    putExtra("startTime", alarm.displayStartTime)
                 }
                 
                 val pendingIntent = PendingIntent.getBroadcast(
@@ -70,7 +58,11 @@ class AlarmCenter(private val context: Context) {
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
 
-                val triggerAtMillis = alarmTime.atDate(today).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                val triggerAtMillis = alarm.triggerTime
+                    .atDate(today)
+                    .atZone(ZoneId.systemDefault())
+                    .toInstant()
+                    .toEpochMilli()
 
                 // setAlarmClock을 사용하여 시스템 알람 수준의 우선순위 부여
                 val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showAppPendingIntent)

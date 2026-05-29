@@ -18,6 +18,19 @@ data class DutyInfo(
     val remaining: Duration
 )
 
+data class DutyAlarm(
+    val triggerTime: LocalTime,
+    val displayStartTime: String,
+    val location: String
+)
+
+data class ProcessedSlot(
+    val startTime: LocalTime,
+    val endTime: LocalTime,
+    val displayStartTime: String,
+    val location: String
+)
+
 object DutyCore {
 
     // [주1 근무 조] 편성표 데이터 수정본
@@ -120,30 +133,89 @@ object DutyCore {
         "JU2_3" to ju2_table3
     )
 
-    fun calculateDutyInfo(currentTime: LocalTime, settings: DutySettings): DutyInfo {
-        val tableKey = "${settings.time}_${settings.table}"
-        val timeSlots = totalMap[tableKey] ?: emptyList()
+    /**
+     * 비즈니스 로직(근무 규칙)에 따른 출근/퇴근 시간 반환
+     */
+    fun getShiftTimes(time: String, isPt: Boolean): Pair<LocalTime, LocalTime> {
+        val start = if (isPt && time == "JU2") LocalTime.of(11, 30) 
+                    else if (time == "JU1") LocalTime.of(8, 0) 
+                    else LocalTime.of(11, 0)
+        
+        val end = if (isPt && time == "JU1") LocalTime.of(16, 30) 
+                  else if (time == "JU1") LocalTime.of(17, 0) 
+                  else LocalTime.of(20, 0)
+        
+        return start to end
+    }
 
-        val isPt = settings.isPt
-        val shiftStart = if (isPt && settings.time == "JU2") LocalTime.of(11, 30) else (if (settings.time == "JU1") LocalTime.of(8, 0) else LocalTime.of(11, 0))
-        val shiftEnd = if (isPt && settings.time == "JU1") LocalTime.of(16, 30) else (if (settings.time == "JU1") LocalTime.of(17, 0) else LocalTime.of(20, 0))
+    /**
+     * 비즈니스 로직(근무 규칙)이 적용된 가공된 타임슬롯 리스트 반환
+     */
+    private fun getProcessedSlots(time: String, table: Int, number: Int, isPt: Boolean): List<ProcessedSlot> {
+        val tableKey = "${time}_$table"
+        val timeSlots = totalMap[tableKey] ?: return emptyList()
+        val (shiftStart, shiftEnd) = getShiftTimes(time, isPt)
+
+        return timeSlots.mapNotNull { slot ->
+            val location = slot.locations.getOrNull(number - 1) ?: return@mapNotNull null
+            val originalStart = LocalTime.parse(slot.startTime)
+            val originalEnd = LocalTime.parse(slot.endTime)
+
+            // 1. [공통 규칙] 특정 장소 제외
+            if (location == "점심시간" || location == "근무없음") return@mapNotNull null
+
+            // 2. [PT 규칙] 적용
+            var finalStart = originalStart
+            val finalEnd = originalEnd
+            var displayStart = slot.startTime
+
+            if (isPt) {
+                // [JU1 + PT] 16:30 이후 근무 제외
+                if (time == "JU1" && !originalStart.isBefore(shiftEnd)) {
+                    return@mapNotNull null
+                }
+                // [JU2 + PT] 11:00 근무는 11:30 시작으로 변경
+                if (time == "JU2" && slot.startTime == "11:00") {
+                    finalStart = shiftStart
+                    displayStart = "11:30"
+                }
+            }
+
+            ProcessedSlot(finalStart, finalEnd, displayStart, location)
+        }
+    }
+
+    /**
+     * 비즈니스 로직(근무 규칙)에 따른 알람 스케줄 계산
+     */
+    fun getAlarmSchedules(time: String, table: Int, number: Int, isPt: Boolean): List<DutyAlarm> {
+        return getProcessedSlots(time, table, number, isPt).map { slot ->
+            DutyAlarm(
+                triggerTime = slot.startTime.minusMinutes(5),
+                displayStartTime = slot.displayStartTime,
+                location = slot.location
+            )
+        }
+    }
+
+    fun calculateDutyInfo(currentTime: LocalTime, settings: DutySettings): DutyInfo {
+        val processedSlots = getProcessedSlots(settings.time, settings.table, settings.number, settings.isPt)
+        val (shiftStart, shiftEnd) = getShiftTimes(settings.time, settings.isPt)
 
         val (currLoc, currRange) = when {
             currentTime.isBefore(shiftStart) -> "출근 전" to "시작 시간: $shiftStart"
             !currentTime.isBefore(shiftEnd) -> "업무 종료" to "퇴근 완료"
             else -> {
-                val slot = timeSlots.find { s ->
-                    val start = LocalTime.parse(s.startTime)
-                    val end = LocalTime.parse(s.endTime)
-                    !currentTime.isBefore(start) && currentTime.isBefore(end)
+                val slot = processedSlots.find { s ->
+                    !currentTime.isBefore(s.startTime) && currentTime.isBefore(s.endTime)
                 }
-                (slot?.locations?.getOrNull(settings.number - 1) ?: "근무 외 시간") to (slot?.let { "${it.startTime} ~ ${it.endTime}" } ?: "")
+                (slot?.location ?: "근무 외 시간") to (slot?.let { "${it.displayStartTime} ~ ${it.endTime}" } ?: "")
             }
         }
 
-        val nextSlot = timeSlots.find { currentTime.isBefore(LocalTime.parse(it.startTime)) }
-        val (nLoc, nStart) = if (nextSlot != null && LocalTime.parse(nextSlot.startTime).isBefore(shiftEnd)) {
-            (nextSlot.locations.getOrNull(settings.number - 1) ?: "없음") to "시작 예정: ${nextSlot.startTime}"
+        val nextSlot = processedSlots.find { currentTime.isBefore(it.startTime) }
+        val (nLoc, nStart) = if (nextSlot != null && nextSlot.startTime.isBefore(shiftEnd)) {
+            nextSlot.location to "시작 예정: ${nextSlot.displayStartTime}"
         } else {
             "없음 (퇴근 예정)" to "수고하셨습니다"
         }

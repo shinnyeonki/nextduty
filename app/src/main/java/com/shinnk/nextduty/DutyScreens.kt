@@ -304,9 +304,14 @@ fun StatusScreen(settings: DutySettings, onEdit: () -> Unit) {
         }
     }
 
-    val (currentLocation, currentRange, nextLocation, nextStartTime, remaining) = remember(currentTime, settings) {
-        calculateDutyInfo(currentTime, settings)
+    val dutyInfo = remember(currentTime, settings) {
+        DutyCore.calculateDutyInfo(currentTime, settings)
     }
+    val currentLocation = dutyInfo.currentLoc
+    val currentRange = dutyInfo.currentRange
+    val nextLocation = dutyInfo.nextLoc
+    val nextStartTime = dutyInfo.nextStart
+    val remaining = dutyInfo.remaining
 
     Column(
         modifier = Modifier
@@ -363,10 +368,10 @@ fun StatusScreen(settings: DutySettings, onEdit: () -> Unit) {
             ) {
                 Text("퇴근까지 남은 시간", style = MaterialTheme.typography.labelLarge, color = Color.Gray)
                 Text(
-                    text = formatDuration(remaining),
+                    text = DutyCore.formatDuration(remaining),
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
-                    color = if (remaining.isZero) Color.Gray else MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.primary,
                     letterSpacing = 2.sp
                 )
             }
@@ -510,50 +515,3 @@ fun SettingsModernSection(title: String, content: @Composable () -> Unit) {
         content()
     }
 }
-
-// Logic remain exactly the same
-private data class DutyInfo(
-    val currentLoc: String,
-    val currentRange: String,
-    val nextLoc: String,
-    val nextStart: String,
-    val remaining: Duration
-)
-
-private fun calculateDutyInfo(currentTime: LocalTime, settings: DutySettings): DutyInfo {
-    val tableKey = "${settings.time}_${settings.table}"
-    val timeSlots = DutyMasterData.totalMap[tableKey] ?: emptyList()
-    
-    val isPt = settings.isPt
-    val shiftStart = if (isPt && settings.time == "JU2") LocalTime.of(11, 30) else (if (settings.time == "JU1") LocalTime.of(8, 0) else LocalTime.of(11, 0))
-    val shiftEnd = if (isPt && settings.time == "JU1") LocalTime.of(16, 30) else (if (settings.time == "JU1") LocalTime.of(17, 0) else LocalTime.of(20, 0))
-
-    val (currLoc, currRange) = when {
-        currentTime.isBefore(shiftStart) -> "출근 전" to "시작 시간: $shiftStart"
-        !currentTime.isBefore(shiftEnd) -> "업무 종료" to "퇴근 완료"
-        else -> {
-            val slot = timeSlots.find { s ->
-                val start = LocalTime.parse(s.startTime)
-                val end = LocalTime.parse(s.endTime)
-                !currentTime.isBefore(start) && currentTime.isBefore(end)
-            }
-            (slot?.locations?.getOrNull(settings.number - 1) ?: "근무 외 시간") to (slot?.let { "${it.startTime} ~ ${it.endTime}" } ?: "")
-        }
-    }
-
-    val nextSlot = timeSlots.find { currentTime.isBefore(LocalTime.parse(it.startTime)) }
-    val (nLoc, nStart) = if (nextSlot != null && LocalTime.parse(nextSlot.startTime).isBefore(shiftEnd)) {
-        (nextSlot.locations.getOrNull(settings.number - 1) ?: "없음") to "시작 예정: ${nextSlot.startTime}"
-    } else {
-        "없음 (퇴근 예정)" to "수고하셨습니다"
-    }
-
-    val remaining = if (currentTime.isBefore(shiftEnd)) Duration.between(currentTime, shiftEnd) else Duration.ZERO
-    
-    return DutyInfo(currLoc, currRange, nLoc, nStart, remaining)
-}
-
-private fun formatDuration(duration: Duration): String = String.format(
-    Locale.getDefault(), "%02d:%02d:%02d",
-    duration.toHours(), duration.toMinutesPart(), duration.toSecondsPart()
-)

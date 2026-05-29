@@ -1,6 +1,9 @@
 package com.shinnk.nextduty
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -21,6 +24,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 class AlarmActivity : ComponentActivity() {
+
+    private var mediaPlayer: MediaPlayer? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -42,6 +48,8 @@ class AlarmActivity : ComponentActivity() {
         // 화면이 꺼지지 않도록 유지
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        startAlarmSound()
+
         val location = intent.getStringExtra("location") ?: "다음 근무지"
         val startTime = intent.getStringExtra("startTime") ?: ""
 
@@ -57,9 +65,43 @@ class AlarmActivity : ComponentActivity() {
         }
     }
 
+    private fun startAlarmSound() {
+        try {
+            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(this@AlarmActivity, alarmUri)
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                isLooping = true
+                prepare()
+                start()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun stopAlarmSound() {
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+        mediaPlayer = null
+    }
+
     private fun dismissAlarm() {
+        stopAlarmSound()
         AlarmCenter(this).dismissAlarm()
         finish()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stopAlarmSound()
     }
 }
 

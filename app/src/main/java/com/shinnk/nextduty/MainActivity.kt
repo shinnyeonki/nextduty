@@ -139,5 +139,25 @@ class MainActivity : ComponentActivity() {
                 return
             }
         }
+
+        // 4. 방해 금지 모드 무시 권한 (Notification Policy Access)
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (!notificationManager.isNotificationPolicyAccessGranted) {
+            Toast.makeText(this, "방해 금지 모드에서도 알림을 울리려면 권한이 필요합니다. 'NextDuty'를 허용해주세요.", Toast.LENGTH_LONG).show()
+            val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
+                // 패키지 정보를 추가하여 해당 앱으로 바로 이동 시도
+                data = Uri.fromParts("package", packageName, null)
+                // 추가적인 힌트 정보 제공 (일부 제조사 대응)
+                putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                putExtra("android.provider.extra.APP_PACKAGE", packageName)
+            }
+            try {
+                startActivity(intent)
+            } catch (e: Exception) {
+                // 일부 기기에서 data URI를 지원하지 않을 경우 일반 리스트 호출
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+            }
+            return
+        }
     }
 }

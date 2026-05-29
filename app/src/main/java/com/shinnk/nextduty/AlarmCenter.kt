@@ -99,6 +99,7 @@ class AlarmCenter(private val context: Context) {
                 enableVibration(true)
                 setSound(alarmSound, audioAttributes)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setBypassDnd(true) // 방해 금지 모드 무시 설정
             }
             notificationManager.createNotificationChannel(channel)
         }

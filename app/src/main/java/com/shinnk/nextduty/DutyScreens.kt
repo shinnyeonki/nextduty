@@ -100,6 +100,7 @@ fun DutyApp(
     var isEditing by remember { mutableStateOf(false) }
     var showTableDialog by remember { mutableStateOf(false) }
     var showWorkScheduleDialog by remember { mutableStateOf(false) }
+    var showPatrolDialog by remember { mutableStateOf(false) }
 
     if (showTableDialog) {
         DutyTableDialog(onDismiss = { showTableDialog = false })
@@ -113,13 +114,18 @@ fun DutyApp(
         )
     }
 
+    if (showPatrolDialog) {
+        PatrolDialog(onDismiss = { showPatrolDialog = false })
+    }
+
     Scaffold(
         topBar = {
             PremiumTopBar(
                 isAppActive = isAppActive,
                 onToggleActive = onSaveAppActiveStatus,
                 onShowTable = { showTableDialog = true },
-                onShowWorkSchedule = { showWorkScheduleDialog = true }
+                onShowWorkSchedule = { showWorkScheduleDialog = true },
+                onShowPatrol = { showPatrolDialog = true }
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -170,18 +176,11 @@ private fun PremiumTopBar(
     isAppActive: Boolean, 
     onToggleActive: (Boolean) -> Unit,
     onShowTable: () -> Unit,
-    onShowWorkSchedule: () -> Unit
+    onShowWorkSchedule: () -> Unit,
+    onShowPatrol: () -> Unit
 ) {
     CenterAlignedTopAppBar(
-        title = {
-            Text(
-                "NEXT DUTY",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 2.sp,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-            )
-        },
+        title = {},
         navigationIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onShowTable) {
@@ -189,6 +188,9 @@ private fun PremiumTopBar(
                 }
                 IconButton(onClick = onShowWorkSchedule) {
                     Icon(Icons.Default.DateRange, "근무표", tint = MaterialTheme.colorScheme.primary)
+                }
+                IconButton(onClick = onShowPatrol) {
+                    Icon(Icons.Default.Security, "순찰", tint = MaterialTheme.colorScheme.primary)
                 }
             }
         },
@@ -274,7 +276,14 @@ fun InputScreen(
             .verticalScroll(rememberScrollState())
     ) {
         Spacer(Modifier.height(12.dp))
-        
+        Text(
+            "NEXT DUTY",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 3.sp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+        )
+        Spacer(Modifier.height(8.dp))
         Text("Setup your duty", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Black)
         Text("근무 정보를 설정하고 서비스를 시작하세요.", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
         
@@ -397,6 +406,14 @@ fun StatusScreen(settings: DutySettings, onEdit: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(20.dp))
+        Text(
+            "NEXT DUTY",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 3.sp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+        )
+        Spacer(Modifier.height(24.dp))
         
         // Premium Clock (Side-by-side)
         Row(verticalAlignment = Alignment.Bottom) {

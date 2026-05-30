@@ -38,6 +38,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
+import java.io.File
+import android.net.Uri
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -49,16 +57,27 @@ fun DutyApp(
     dutySettings: DutySettings?,
     ptStatus: Boolean,
     isAppActive: Boolean,
+    workScheduleImages: List<String>,
     onSaveSettings: (String, Int, Int) -> Unit,
     onSavePtStatus: (Boolean) -> Unit,
     onSaveAppActiveStatus: (Boolean) -> Unit,
+    onSaveWorkScheduleImages: (List<String>) -> Unit,
     onEdit: () -> Unit,
 ) {
     var isEditing by remember { mutableStateOf(false) }
     var showTableDialog by remember { mutableStateOf(false) }
+    var showWorkScheduleDialog by remember { mutableStateOf(false) }
 
     if (showTableDialog) {
         DutyTableDialog(onDismiss = { showTableDialog = false })
+    }
+
+    if (showWorkScheduleDialog) {
+        WorkScheduleDialog(
+            images = workScheduleImages,
+            onSaveImages = onSaveWorkScheduleImages,
+            onDismiss = { showWorkScheduleDialog = false }
+        )
     }
 
     Scaffold(
@@ -66,7 +85,8 @@ fun DutyApp(
             PremiumTopBar(
                 isAppActive = isAppActive,
                 onToggleActive = onSaveAppActiveStatus,
-                onShowTable = { showTableDialog = true }
+                onShowTable = { showTableDialog = true },
+                onShowWorkSchedule = { showWorkScheduleDialog = true }
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -116,7 +136,8 @@ fun DutyApp(
 private fun PremiumTopBar(
     isAppActive: Boolean, 
     onToggleActive: (Boolean) -> Unit,
-    onShowTable: () -> Unit
+    onShowTable: () -> Unit,
+    onShowWorkSchedule: () -> Unit
 ) {
     CenterAlignedTopAppBar(
         title = {
@@ -129,8 +150,13 @@ private fun PremiumTopBar(
             )
         },
         navigationIcon = {
-            IconButton(onClick = onShowTable) {
-                Icon(Icons.Default.DateRange, "편성표", tint = MaterialTheme.colorScheme.primary)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onShowTable) {
+                    Icon(Icons.AutoMirrored.Filled.List, "편성표", tint = MaterialTheme.colorScheme.primary)
+                }
+                IconButton(onClick = onShowWorkSchedule) {
+                    Icon(Icons.Default.DateRange, "근무표", tint = MaterialTheme.colorScheme.primary)
+                }
             }
         },
         actions = {
@@ -541,6 +567,130 @@ fun PremiumInputSection(title: String, icon: ImageVector, content: @Composable (
 }
 
 // --- Dialogs ---
+
+@Composable
+fun WorkScheduleDialog(
+    images: List<String>,
+    onSaveImages: (List<String>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val pagerState = rememberPagerState { images.size }
+    var tempUri by remember { mutableStateOf<Uri?>(null) }
+    
+    val galleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            onSaveImages(images + uris.map { it.toString() })
+        }
+    }
+    
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && tempUri != null) {
+            onSaveImages(images + tempUri.toString())
+        }
+    }
+
+    fun launchCamera() {
+        val file = File(context.cacheDir, "images/camera_${System.currentTimeMillis()}.jpg")
+        file.parentFile?.mkdirs()
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        tempUri = uri
+        cameraLauncher.launch(uri)
+    }
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            if (images.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(Icons.Default.AddAPhoto, null, tint = Color.White.copy(0.3f), modifier = Modifier.size(64.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Text("등록된 근무표가 없습니다.", color = Color.White.copy(0.5f))
+                }
+            } else {
+                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                    ZoomableAsyncImage(model = images[page])
+                }
+            }
+
+            Box(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).background(Brush.verticalGradient(listOf(Color.Black.copy(0.6f), Color.Transparent))).statusBarsPadding().padding(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)) { Icon(Icons.Default.Close, "Close", tint = Color.White) }
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (images.isNotEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    val newList = images.toMutableList().apply { removeAt(pagerState.currentPage) }
+                                    onSaveImages(newList)
+                                },
+                                modifier = Modifier.background(Color.Red.copy(0.2f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Delete, "Delete", tint = Color.White)
+                            }
+                        }
+                        
+                        IconButton(
+                            onClick = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                            modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
+                        ) { Icon(Icons.Default.PhotoLibrary, "Gallery", tint = Color.White) }
+                        
+                        IconButton(
+                            onClick = { launchCamera() },
+                            modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
+                        ) { Icon(Icons.Default.AddAPhoto, "Camera", tint = Color.White) }
+                    }
+                }
+            }
+            
+            if (images.size > 1) {
+                Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 24.dp)) {
+                    repeat(images.size) { iteration ->
+                        val isSelected = pagerState.currentPage == iteration
+                        val width by animateDpAsState(if (isSelected) 20.dp else 8.dp, label = "width")
+                        Box(modifier = Modifier.padding(4.dp).height(8.dp).width(width).clip(CircleShape).background(if (isSelected) Color.White else Color.White.copy(0.3f)))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ZoomableAsyncImage(model: Any) {
+    var scale by remember(model) { mutableFloatStateOf(1f) }
+    var offset by remember(model) { mutableStateOf(Offset.Zero) }
+    Box(modifier = Modifier.fillMaxSize().pointerInput(model) {
+        detectTapGestures(onDoubleTap = {
+            if (scale > 1f) { scale = 1f; offset = Offset.Zero } else { scale = 2.5f }
+        })
+    }.pointerInput(model) {
+        awaitEachGesture {
+            awaitFirstDown(false)
+            do {
+                val event = awaitPointerEvent()
+                if (scale > 1f || event.changes.size > 1) {
+                    val zoomChange = event.calculateZoom()
+                    val panChange = event.calculatePan()
+                    if (zoomChange != 1f || panChange != Offset.Zero) {
+                        scale = (scale * zoomChange).coerceIn(1f, 5f)
+                        if (scale > 1f) offset += panChange else offset = Offset.Zero
+                        event.changes.forEach { it.consume() }
+                    }
+                }
+            } while (event.changes.any { it.pressed })
+        }
+    }) {
+        AsyncImage(model = model, contentDescription = null, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y }, contentScale = ContentScale.Fit)
+    }
+}
 
 @Composable
 fun DutyTableDialog(onDismiss: () -> Unit) {

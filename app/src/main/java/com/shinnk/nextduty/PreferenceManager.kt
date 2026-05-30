@@ -19,6 +19,11 @@ class PreferenceManager(private val context: Context) {
         val DUTY_NUMBER = intPreferencesKey("duty_number") // 1, 2, 3, 4
         val LAST_SAVED_DATE = stringPreferencesKey("last_saved_date")
         val IS_APP_ACTIVE = booleanPreferencesKey("is_app_active")
+        val WORK_SCHEDULE_IMAGES = stringSetPreferencesKey("work_schedule_images")
+    }
+
+    val workScheduleImages: Flow<List<String>> = context.dataStore.data.map { preferences ->
+        preferences[WORK_SCHEDULE_IMAGES]?.toList() ?: emptyList()
     }
 
     val isAppActive: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -53,6 +58,12 @@ class PreferenceManager(private val context: Context) {
     suspend fun saveAppActiveStatus(isActive: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[IS_APP_ACTIVE] = isActive
+        }
+    }
+
+    suspend fun saveWorkScheduleImages(images: List<String>) {
+        context.dataStore.edit { preferences ->
+            preferences[WORK_SCHEDULE_IMAGES] = images.toSet()
         }
     }
 

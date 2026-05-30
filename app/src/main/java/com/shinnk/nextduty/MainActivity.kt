@@ -63,11 +63,13 @@ class MainActivity : ComponentActivity() {
             val dutySettings by preferenceManager.dutySettings.collectAsState(initial = null)
             val ptStatus by preferenceManager.ptStatus.collectAsState(initial = false)
             val isAppActive by preferenceManager.isAppActive.collectAsState(initial = true)
+            val workScheduleImages by preferenceManager.workScheduleImages.collectAsState(initial = emptyList())
 
             DutyApp(
                 dutySettings = dutySettings,
                 ptStatus = ptStatus,
                 isAppActive = isAppActive,
+                workScheduleImages = workScheduleImages,
                 onSaveSettings = { time, table, number ->
                     lifecycleScope.launch {
                         preferenceManager.saveDutySettings(time, table, number, ptStatus)
@@ -91,6 +93,11 @@ class MainActivity : ComponentActivity() {
                         } else {
                             alarmCenter.cancelAllAlarms()
                         }
+                    }
+                },
+                onSaveWorkScheduleImages = { images ->
+                    lifecycleScope.launch {
+                        preferenceManager.saveWorkScheduleImages(images)
                     }
                 },
                 onEdit = {

@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.io.File
 import java.time.LocalDate
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -20,10 +21,13 @@ class PreferenceManager(private val context: Context) {
         val LAST_SAVED_DATE = stringPreferencesKey("last_saved_date")
         val IS_APP_ACTIVE = booleanPreferencesKey("is_app_active")
         val WORK_SCHEDULE_IMAGES = stringSetPreferencesKey("work_schedule_images")
+        val SCHEDULED_ALARM_COUNT = intPreferencesKey("scheduled_alarm_count")
     }
 
     val workScheduleImages: Flow<List<String>> = context.dataStore.data.map { preferences ->
-        preferences[WORK_SCHEDULE_IMAGES]?.toList() ?: emptyList()
+        val paths = preferences[WORK_SCHEDULE_IMAGES]?.toList() ?: emptyList()
+        // 실제 파일이 존재하는 것들만 필터링 (엣지케이스 방지)
+        paths.filter { File(it).exists() }
     }
 
     val isAppActive: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -32,6 +36,10 @@ class PreferenceManager(private val context: Context) {
 
     val ptStatus: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[PT_STATUS] ?: false
+    }
+
+    val scheduledAlarmCount: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[SCHEDULED_ALARM_COUNT] ?: 0
     }
 
     val dutySettings: Flow<DutySettings?> = context.dataStore.data.map { preferences ->
@@ -64,6 +72,12 @@ class PreferenceManager(private val context: Context) {
     suspend fun saveWorkScheduleImages(images: List<String>) {
         context.dataStore.edit { preferences ->
             preferences[WORK_SCHEDULE_IMAGES] = images.toSet()
+        }
+    }
+
+    suspend fun saveScheduledAlarmCount(count: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[SCHEDULED_ALARM_COUNT] = count
         }
     }
 

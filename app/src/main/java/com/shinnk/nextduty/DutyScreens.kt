@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,9 +47,41 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
 import java.io.File
 import android.net.Uri
+import android.provider.OpenableColumns
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.io.FileOutputStream
+
+// --- Storage Helper ---
+
+object ImageStorage {
+    fun saveUriToInternal(context: android.content.Context, uri: Uri): String? {
+        return try {
+            val fileName = "duty_${System.currentTimeMillis()}_${(100..999).random()}.jpg"
+            val destFile = File(context.filesDir, "work_schedules/$fileName")
+            destFile.parentFile?.mkdirs()
+            
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(destFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            destFile.absolutePath
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun deleteFile(path: String) {
+        try {
+            val file = File(path)
+            if (file.exists()) file.delete()
+        } catch (e: Exception) { /* ignore */ }
+    }
+}
 
 // --- Main App Component ---
 
@@ -576,32 +609,43 @@ fun WorkScheduleDialog(
 ) {
     val context = LocalContext.current
     val pagerState = rememberPagerState { images.size }
-    var tempUri by remember { mutableStateOf<Uri?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     
     val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia()
     ) { uris ->
         if (uris.isNotEmpty()) {
-            onSaveImages(images + uris.map { it.toString() })
+            val newPaths = uris.mapNotNull { ImageStorage.saveUriToInternal(context, it) }
+            onSaveImages(images + newPaths)
         }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("근무표 삭제") },
+            text = { Text("등록된 근무표를 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val pathToRemove = images[pagerState.currentPage]
+                        val newList = images.toMutableList().apply { removeAt(pagerState.currentPage) }
+                        onSaveImages(newList)
+                        ImageStorage.deleteFile(pathToRemove)
+                        showDeleteConfirm = false
+                    }
+                ) {
+                    Text("삭제", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("취소")
+                }
+            }
+        )
     }
     
-    val cameraLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.TakePicture()
-    ) { success ->
-        if (success && tempUri != null) {
-            onSaveImages(images + tempUri.toString())
-        }
-    }
-
-    fun launchCamera() {
-        val file = File(context.cacheDir, "images/camera_${System.currentTimeMillis()}.jpg")
-        file.parentFile?.mkdirs()
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        tempUri = uri
-        cameraLauncher.launch(uri)
-    }
-
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             if (images.isEmpty()) {
@@ -610,13 +654,20 @@ fun WorkScheduleDialog(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(Icons.Default.AddAPhoto, null, tint = Color.White.copy(0.3f), modifier = Modifier.size(64.dp))
+                    Icon(Icons.Default.PhotoLibrary, null, tint = Color.White.copy(0.3f), modifier = Modifier.size(64.dp))
                     Spacer(Modifier.height(16.dp))
                     Text("등록된 근무표가 없습니다.", color = Color.White.copy(0.5f))
                 }
             } else {
                 HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                    ZoomableAsyncImage(model = images[page])
+                    val path = images[page]
+                    if (File(path).exists()) {
+                        ZoomableAsyncImage(model = File(path))
+                    } else {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("이미지를 찾을 수 없습니다.", color = Color.White)
+                        }
+                    }
                 }
             }
 
@@ -627,10 +678,7 @@ fun WorkScheduleDialog(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (images.isNotEmpty()) {
                             IconButton(
-                                onClick = {
-                                    val newList = images.toMutableList().apply { removeAt(pagerState.currentPage) }
-                                    onSaveImages(newList)
-                                },
+                                onClick = { showDeleteConfirm = true },
                                 modifier = Modifier.background(Color.Red.copy(0.2f), CircleShape)
                             ) {
                                 Icon(Icons.Default.Delete, "Delete", tint = Color.White)
@@ -641,11 +689,6 @@ fun WorkScheduleDialog(
                             onClick = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                             modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
                         ) { Icon(Icons.Default.PhotoLibrary, "Gallery", tint = Color.White) }
-                        
-                        IconButton(
-                            onClick = { launchCamera() },
-                            modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)
-                        ) { Icon(Icons.Default.AddAPhoto, "Camera", tint = Color.White) }
                     }
                 }
             }

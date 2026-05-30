@@ -10,7 +10,9 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -19,6 +21,7 @@ class AlarmCenter(private val context: Context) {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val prefs = PreferenceManager(context)
 
     companion object {
         const val NOTIFICATION_ID = 1001
@@ -26,13 +29,22 @@ class AlarmCenter(private val context: Context) {
         const val MAX_ALARM_COUNT = 50 // 리팩토링: 취소 동작의 확실성을 위한 상수 정의
     }
 
-    fun scheduleAlarms(time: String, table: Int, number: Int, isPt: Boolean) {
+    suspend fun scheduleAlarms(time: String, table: Int, number: Int, isPt: Boolean) {
+        // [권한 체크] 정확한 알람 권한 확인 및 피드백
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Toast.makeText(context, "정확한 알람 권한이 없어 알람이 예약되지 않았습니다.", Toast.LENGTH_LONG).show()
+                return
+            }
+        }
+
         val alarms = DutyCore.getAlarmSchedules(time, table, number, isPt)
         
         cancelAllAlarms()
 
         val now = LocalTime.now()
         val today = LocalDate.now()
+        var scheduledCount = 0
 
         // 알람 상태바 아이콘을 클릭했을 때 열릴 화면 설정
         val showAppIntent = Intent(context, MainActivity::class.java).apply {
@@ -71,13 +83,19 @@ class AlarmCenter(private val context: Context) {
                 // setAlarmClock을 사용하여 시스템 알람 수준의 우선순위 부여
                 val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showAppPendingIntent)
                 alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                scheduledCount++
             }
         }
+        // 예약된 알람 개수 저장
+        prefs.saveScheduledAlarmCount(scheduledCount)
     }
 
-    fun cancelAllAlarms() {
-        // 리팩토링: 하드코딩된 20 대신 상수를 사용하여 취소 범위의 확실성 확보
-        for (i in 0 until MAX_ALARM_COUNT) {
+    suspend fun cancelAllAlarms() {
+        val count = prefs.scheduledAlarmCount.first()
+        // 저장된 개수만큼만 취소하거나, 안전을 위해 최소 MAX_ALARM_COUNT만큼 취소
+        val cancelLimit = maxOf(count, MAX_ALARM_COUNT)
+        
+        for (i in 0 until cancelLimit) {
             val intent = Intent(context, AlarmReceiver::class.java)
             val pendingIntent = PendingIntent.getBroadcast(
                 context, i, intent,
@@ -85,6 +103,7 @@ class AlarmCenter(private val context: Context) {
             )
             alarmManager.cancel(pendingIntent)
         }
+        prefs.saveScheduledAlarmCount(0)
     }
 
     fun showAlarmNotification(location: String, startTime: String) {

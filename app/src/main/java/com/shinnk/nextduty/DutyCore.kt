@@ -166,9 +166,9 @@ object DutyCore {
             // 1. [공통 규칙] 특정 장소 제외
             if (location == "근무없음") return@mapNotNull null
 
-            // 2. [PT 규칙] 적용
+            // 2. [PT 규칙] 및 [특수 규칙] 적용
             var finalStart = originalStart
-            val finalEnd = originalEnd
+            var finalEnd = originalEnd
             var displayStart = slot.startTime
 
             if (isPt) {
@@ -182,6 +182,15 @@ object DutyCore {
                     displayStart = "11:30"
                 }
             }
+            
+            // [특수 규칙] 주2 2번: 17:00-18:00 근무를 17:30 종료로 단축
+            if (time == "JU2" && number == 2 && slot.startTime == "17:00") {
+                finalEnd = LocalTime.of(17, 30)
+            }
+
+            // 가드: 근무 시간이 유효하지 않거나 근무 범위를 벗어나면 제외
+            if (!finalStart.isBefore(finalEnd)) return@mapNotNull null
+            if (!finalStart.isBefore(shiftEnd)) return@mapNotNull null
 
             ProcessedSlot(finalStart, finalEnd, displayStart, location)
         }

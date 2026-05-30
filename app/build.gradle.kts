@@ -37,10 +37,8 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.constraintlayout)
     implementation(libs.material)
 
     implementation(platform(libs.androidx.compose.bom))

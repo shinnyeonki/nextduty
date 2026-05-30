@@ -102,8 +102,8 @@ class AlarmActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
-        // 리팩토링: 알람 종료의 완결성 확보
-        // 전화를 받거나 홈 버튼을 누르는 등 화면을 벗어나면 사용자가 인지한 것으로 간주하고 종료
+        // [동작 완결성] 전화를 받거나 홈 버튼을 누르는 등 화면을 벗어나면 사용자가 인지한 것으로 간주하고 소리를 끄고 종료합니다.
+        // 이는 알람이 무한정 울리는 것을 방지하고, 모든 종료 경로에서 동일한 종료 루틴(dismissAlarm)을 수행하도록 보장합니다.
         if (!isFinishing) {
             dismissAlarm()
         }

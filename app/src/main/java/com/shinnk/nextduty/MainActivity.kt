@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission(),
     ) { isGranted: Boolean ->
         if (!isGranted) {
-            Toast.makeText(this, "알림 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "필수 권한이 거부되었습니다. 설정에서 허용해주세요.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -101,7 +101,9 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 onEdit = {
-                    alarmCenter.cancelAllAlarms()
+                    lifecycleScope.launch {
+                        alarmCenter.cancelAllAlarms()
+                    }
                 },
             )
         }
@@ -121,7 +123,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 2. 정확한 알람 권한 (Android 12+)
+        // 3. 정확한 알람 권한 (Android 12+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
             if (!alarmManager.canScheduleExactAlarms()) {

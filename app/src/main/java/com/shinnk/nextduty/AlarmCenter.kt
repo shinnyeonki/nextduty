@@ -23,6 +23,7 @@ class AlarmCenter(private val context: Context) {
     companion object {
         const val NOTIFICATION_ID = 1001
         const val CHANNEL_ID = "duty_alarm_channel_v3"
+        const val MAX_ALARM_COUNT = 50 // 리팩토링: 취소 동작의 확실성을 위한 상수 정의
     }
 
     fun scheduleAlarms(time: String, table: Int, number: Int, isPt: Boolean) {
@@ -45,6 +46,9 @@ class AlarmCenter(private val context: Context) {
         )
 
         alarms.forEachIndexed { index, alarm ->
+            // [방어 코드] 상수를 넘지 않도록 제한
+            if (index >= MAX_ALARM_COUNT) return@forEachIndexed
+
             if (alarm.triggerTime.isAfter(now)) {
                 val intent = Intent(context, AlarmReceiver::class.java).apply {
                     putExtra("location", alarm.location)
@@ -72,7 +76,8 @@ class AlarmCenter(private val context: Context) {
     }
 
     fun cancelAllAlarms() {
-        for (i in 0 until 20) {
+        // 리팩토링: 하드코딩된 20 대신 상수를 사용하여 취소 범위의 확실성 확보
+        for (i in 0 until MAX_ALARM_COUNT) {
             val intent = Intent(context, AlarmReceiver::class.java)
             val pendingIntent = PendingIntent.getBroadcast(
                 context, i, intent,

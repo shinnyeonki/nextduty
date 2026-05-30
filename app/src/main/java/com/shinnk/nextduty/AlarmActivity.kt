@@ -48,6 +48,7 @@ class AlarmActivity : ComponentActivity() {
         // 화면이 꺼지지 않도록 유지
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        // 알람 소리 시작
         startAlarmSound()
 
         val location = intent.getStringExtra("location") ?: "다음 근무지"
@@ -99,6 +100,15 @@ class AlarmActivity : ComponentActivity() {
         finish()
     }
 
+    override fun onPause() {
+        super.onPause()
+        // 리팩토링: 알람 종료의 완결성 확보
+        // 전화를 받거나 홈 버튼을 누르는 등 화면을 벗어나면 사용자가 인지한 것으로 간주하고 종료
+        if (!isFinishing) {
+            dismissAlarm()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         stopAlarmSound()
@@ -132,26 +142,26 @@ fun AlarmAlertScreen(location: String, startTime: String, onDismiss: () -> Unit)
                     )
                 }
             }
-            
+
             Spacer(Modifier.height(40.dp))
-            
+
             Text(
                 text = "근무 이동 알림",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 fontWeight = FontWeight.Bold
             )
-            
+
             Spacer(Modifier.height(16.dp))
-            
+
             Text(
                 text = "[$startTime] 이동 준비",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
             )
-            
+
             Spacer(Modifier.height(8.dp))
-            
+
             Text(
                 text = location,
                 style = MaterialTheme.typography.displaySmall,
@@ -159,9 +169,9 @@ fun AlarmAlertScreen(location: String, startTime: String, onDismiss: () -> Unit)
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 textAlign = TextAlign.Center
             )
-            
+
             Spacer(Modifier.height(64.dp))
-            
+
             Button(
                 onClick = onDismiss,
                 modifier = Modifier

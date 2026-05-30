@@ -140,7 +140,18 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 4. 방해 금지 모드 무시 권한 (Notification Policy Access)
+        // 4. 다른 앱 위에 표시 권한 (Overlay Permission)
+        // 백그라운드에서 액티비티를 강제로 띄우기 위해 필요한 권한입니다.
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "화면 사용 중에도 알림을 즉시 보려면 '다른 앱 위에 표시' 권한이 필요합니다.", Toast.LENGTH_LONG).show()
+            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                data = Uri.fromParts("package", packageName, null)
+            }
+            startActivity(intent)
+            return
+        }
+
+        // 5. 방해 금지 모드 무시 권한 (Notification Policy Access)
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (!notificationManager.isNotificationPolicyAccessGranted) {
             Toast.makeText(this, "방해 금지 모드에서도 알림을 울리려면 권한이 필요합니다. 'NextDuty'를 허용해주세요.", Toast.LENGTH_LONG).show()

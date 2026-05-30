@@ -153,16 +153,18 @@ object DutyCore {
      */
     private fun getProcessedSlots(time: String, table: Int, number: Int, isPt: Boolean): List<ProcessedSlot> {
         val tableKey = "${time}_$table"
-        val timeSlots = totalMap[tableKey] ?: return emptyList()
+        // [가드] 존재하지 않는 테이블 요청 시 기본값(JU1_1) 반환
+        val timeSlots = totalMap[tableKey] ?: totalMap["JU1_1"]!!
         val (shiftStart, shiftEnd) = getShiftTimes(time, isPt)
 
         return timeSlots.mapNotNull { slot ->
-            val location = slot.locations.getOrNull(number - 1) ?: return@mapNotNull null
+            // [가드] 범위를 벗어난 번호 요청 시 1번(첫 번째 위치)으로 안전하게 대응
+            val location = slot.locations.getOrNull(number - 1) ?: slot.locations.firstOrNull() ?: "알 수 없는 장소"
             val originalStart = LocalTime.parse(slot.startTime)
             val originalEnd = LocalTime.parse(slot.endTime)
 
             // 1. [공통 규칙] 특정 장소 제외
-            if (location == "점심시간" || location == "근무없음") return@mapNotNull null
+            if (location == "근무없음") return@mapNotNull null
 
             // 2. [PT 규칙] 적용
             var finalStart = originalStart
@@ -189,13 +191,33 @@ object DutyCore {
      * 비즈니스 로직(근무 규칙)에 따른 알람 스케줄 계산
      */
     fun getAlarmSchedules(time: String, table: Int, number: Int, isPt: Boolean): List<DutyAlarm> {
-        return getProcessedSlots(time, table, number, isPt).map { slot ->
-            DutyAlarm(
-                triggerTime = slot.startTime.minusMinutes(5),
-                displayStartTime = slot.displayStartTime,
-                location = slot.location
-            )
+        val slots = getProcessedSlots(time, table, number, isPt)
+        if (slots.isEmpty()) return emptyList()
+
+        val alarms = mutableListOf<DutyAlarm>()
+
+        // 1. 첫 근무 시작 5분 전 알람
+        alarms.add(DutyAlarm(
+            triggerTime = slots.first().startTime.minusMinutes(5),
+            displayStartTime = slots.first().displayStartTime,
+            location = slots.first().location
+        ))
+
+        // 2. 각 슬롯의 종료 5분 전 알람 (다음 이동지 알림)
+        slots.forEachIndexed { index, slot ->
+            val nextSlot = slots.getOrNull(index + 1)
+            val nextLoc = nextSlot?.location ?: "업무 종료"
+            val nextTime = nextSlot?.displayStartTime ?: slot.endTime.toString()
+
+            alarms.add(DutyAlarm(
+                triggerTime = slot.endTime.minusMinutes(5),
+                displayStartTime = nextTime,
+                location = nextLoc
+            ))
         }
+
+        // 중복 시간 제거 및 정렬
+        return alarms.distinctBy { it.triggerTime }.sortedBy { it.triggerTime }
     }
 
     fun calculateDutyInfo(currentTime: LocalTime, settings: DutySettings): DutyInfo {
@@ -203,13 +225,13 @@ object DutyCore {
         val (shiftStart, shiftEnd) = getShiftTimes(settings.time, settings.isPt)
 
         val (currLoc, currRange) = when {
-            currentTime.isBefore(shiftStart) -> "출근 전" to "시작 시간: $shiftStart"
+            currentTime.isBefore(shiftStart) -> "출근 전" to "시작 예정: $shiftStart"
             !currentTime.isBefore(shiftEnd) -> "업무 종료" to "퇴근 완료"
             else -> {
                 val slot = processedSlots.find { s ->
                     !currentTime.isBefore(s.startTime) && currentTime.isBefore(s.endTime)
                 }
-                (slot?.location ?: "근무 외 시간") to (slot?.let { "${it.displayStartTime} ~ ${it.endTime}" } ?: "")
+                (slot?.location ?: "근무 외 시간") to (slot?.let { "${it.displayStartTime} ~ ${it.endTime}" } ?: "현재 정보 없음")
             }
         }
 

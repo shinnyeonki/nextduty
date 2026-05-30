@@ -1,6 +1,7 @@
 package com.shinnk.nextduty
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
@@ -9,6 +10,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,15 +18,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,9 +41,8 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
-import java.time.Duration
-import java.util.Locale
-import kotlin.math.abs
+
+// --- Main App Component ---
 
 @Composable
 fun DutyApp(
@@ -54,15 +58,12 @@ fun DutyApp(
     var showTableDialog by remember { mutableStateOf(false) }
 
     if (showTableDialog) {
-        DutyTableDialog(
-            initialIndex = 0,
-            onDismiss = { showTableDialog = false }
-        )
+        DutyTableDialog(onDismiss = { showTableDialog = false })
     }
 
     Scaffold(
         topBar = {
-            TopActionBar(
+            PremiumTopBar(
                 isAppActive = isAppActive,
                 onToggleActive = onSaveAppActiveStatus,
                 onShowTable = { showTableDialog = true }
@@ -71,173 +72,129 @@ fun DutyApp(
         containerColor = MaterialTheme.colorScheme.background,
         modifier = Modifier.fillMaxSize()
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // Main Content
-            if (dutySettings == null || isEditing) {
-                InputScreen(
-                    initialSettings = dutySettings,
-                    ptStatus = ptStatus,
-                    onSave = { time, table, number ->
-                        onSaveSettings(time, table, number)
-                        isEditing = false
-                    },
-                    onSavePtStatus = onSavePtStatus
-                )
-            } else {
-                StatusScreen(dutySettings, onEdit = {
-                    isEditing = true
-                    onEdit()
-                })
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            AnimatedContent(
+                targetState = dutySettings == null || isEditing,
+                transitionSpec = {
+                    fadeIn(tween(400)) togetherWith fadeOut(tween(400))
+                },
+                label = "ScreenTransition"
+            ) { editing ->
+                if (editing) {
+                    InputScreen(
+                        initialSettings = dutySettings,
+                        ptStatus = ptStatus,
+                        onSave = { time, table, number ->
+                            onSaveSettings(time, table, number)
+                            isEditing = false
+                        },
+                        onSavePtStatus = onSavePtStatus
+                    )
+                } else {
+                    StatusScreen(dutySettings!!, onEdit = {
+                        isEditing = true
+                        onEdit()
+                    })
+                }
             }
 
-            // Inactive Overlay
             AnimatedVisibility(
                 visible = !isAppActive,
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
-                InactiveOverlay()
+                PremiumInactiveOverlay()
             }
         }
     }
 }
 
+// --- Components: Top Bar & Overlay ---
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TopActionBar(
+private fun PremiumTopBar(
     isAppActive: Boolean, 
     onToggleActive: (Boolean) -> Unit,
     onShowTable: () -> Unit
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 3.dp
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 좌측: 편성표 버튼
-                TextButton(
-                    onClick = onShowTable,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DateRange, 
-                        contentDescription = null, 
-                        modifier = Modifier.size(22.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "편성표", 
-                        style = MaterialTheme.typography.titleMedium, 
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-                
-                // 우측: 상태 토글 및 확장 영역
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // 향후 추가될 버튼 (예: 설정)을 위한 자리
-                    // IconButton(onClick = { /* TODO */ }) { Icon(Icons.Default.Settings, null) }
-                    
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp)
-                        ) {
-                            Text(
-                                text = if (isAppActive) "서비스 ON" else "서비스 OFF",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isAppActive) MaterialTheme.colorScheme.primary else Color.Gray
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Switch(
-                                modifier = Modifier.scale(0.75f),
-                                checked = isAppActive,
-                                onCheckedChange = onToggleActive,
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                                )
-                            )
-                        }
-                    }
-                }
+    CenterAlignedTopAppBar(
+        title = {
+            Text(
+                "NEXT DUTY",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onShowTable) {
+                Icon(Icons.Default.DateRange, "편성표", tint = MaterialTheme.colorScheme.primary)
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        },
+        actions = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(end = 12.dp)
+            ) {
+                Text(
+                    text = if (isAppActive) "ON" else "OFF",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isAppActive) MaterialTheme.colorScheme.primary else Color.Gray
+                )
+                Spacer(Modifier.width(6.dp))
+                Switch(
+                    modifier = Modifier.scale(0.8f),
+                    checked = isAppActive,
+                    onCheckedChange = onToggleActive,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
+        },
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+    )
+}
+
+@Composable
+private fun PremiumInactiveOverlay() {
+    Surface(
+        modifier = Modifier.fillMaxSize().clickable(enabled = false) { },
+        color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.75f)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(32.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(100.dp)
+                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), CircleShape)
+                        .border(2.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                }
+                Spacer(Modifier.height(32.dp))
+                Text("서비스 중지됨", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = Color.White)
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "상단 스위치를 켜면 알림, 근무 확인 서비스가 다시 시작됩니다.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
 
-@Composable
-private fun InactiveOverlay() {
-    Surface(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable(enabled = false) { },
-        color = Color.Black.copy(alpha = 0.55f)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .padding(bottom = 64.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(28.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
-                        shape = CircleShape,
-                        modifier = Modifier.size(64.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(24.dp))
-                    Text(
-                        "서비스가 정지되었습니다",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "상단의 스위치를 켜면 다시 알림과 근무 확인이 시작됩니다.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        }
-    }
-}
+// --- Screen: Input / Setup ---
 
 @Composable
 fun InputScreen(
@@ -253,22 +210,21 @@ fun InputScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
+            .padding(horizontal = 24.dp)
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
     ) {
-        Text(
-            "오늘의 근무 설정",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.ExtraBold
-        )
+        Spacer(Modifier.height(12.dp))
+        
+        Text("Setup your duty", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Black)
+        Text("근무 정보를 설정하고 서비스를 시작하세요.", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
         
         Spacer(Modifier.height(32.dp))
 
-        SettingsModernSection("근무 시간") {
+        PremiumInputSection("근무 시간", Icons.Default.Settings) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 listOf("주간1" to "JU1", "주간2" to "JU2").forEach { (label, value) ->
-                    ModernSelectableChip(
+                    PremiumSelectableChip(
                         label = label,
                         selected = selectedTime == value,
                         onClick = { selectedTime = value },
@@ -280,10 +236,10 @@ fun InputScreen(
 
         Spacer(Modifier.height(24.dp))
         
-        SettingsModernSection("편성표 번호") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PremiumInputSection("편성표 번호", Icons.AutoMirrored.Filled.List) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 (1..4).forEach { i ->
-                    ModernSelectableChip(
+                    PremiumSelectableChip(
                         label = i.toString(),
                         selected = selectedTable == i,
                         onClick = { selectedTable = i },
@@ -295,10 +251,10 @@ fun InputScreen(
 
         Spacer(Modifier.height(24.dp))
         
-        SettingsModernSection("나의 근무 번호") {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PremiumInputSection("나의 근무 번호", Icons.Default.Person) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 (1..4).forEach { i ->
-                    ModernSelectableChip(
+                    PremiumSelectableChip(
                         label = i.toString(),
                         selected = selectedNumber == i,
                         onClick = { selectedNumber = i },
@@ -308,26 +264,9 @@ fun InputScreen(
             }
         }
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(24.dp))
         
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(20.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-        ) {
-            Row(
-                modifier = Modifier.padding(20.dp).fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("PT 여부", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("PT 인가요?", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                }
-                Switch(checked = ptStatus, onCheckedChange = onSavePtStatus)
-            }
-        }
+        PtStatusCard(ptStatus, onSavePtStatus)
 
         Spacer(Modifier.height(32.dp))
         
@@ -335,16 +274,45 @@ fun InputScreen(
             onClick = { onSave(selectedTime, selectedTable, selectedNumber) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(60.dp),
+                .height(64.dp)
+                .shadow(8.dp, RoundedCornerShape(20.dp), spotColor = MaterialTheme.colorScheme.primary),
             shape = RoundedCornerShape(20.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
-            Text("저장 및 서비스 시작", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("저장 및 동기화", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
         }
         
         Spacer(Modifier.height(24.dp))
     }
 }
+
+@Composable
+private fun PtStatusCard(ptStatus: Boolean, onSavePtStatus: (Boolean) -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("PT 여부", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("PT 근무를 적용할까요?", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+            Switch(
+                checked = ptStatus, 
+                onCheckedChange = onSavePtStatus,
+                colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
+            )
+        }
+    }
+}
+
+// --- Screen: Status / Dashboard ---
 
 @Composable
 fun StatusScreen(settings: DutySettings, onEdit: () -> Unit) {
@@ -360,310 +328,246 @@ fun StatusScreen(settings: DutySettings, onEdit: () -> Unit) {
     val dutyInfo = remember(currentTime, settings) {
         DutyCore.calculateDutyInfo(currentTime, settings)
     }
-    val currentLocation = dutyInfo.currentLoc
-    val currentRange = dutyInfo.currentRange
-    val nextLocation = dutyInfo.nextLoc
-    val nextStartTime = dutyInfo.nextStart
-    val remaining = dutyInfo.remaining
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
-            .navigationBarsPadding(),
+            .padding(horizontal = 24.dp)
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Modern Clock
-        Text(
-            text = buildAnnotatedString {
-                withStyle(SpanStyle(fontWeight = FontWeight.Black)) {
-                    append(currentTime.format(DateTimeFormatter.ofPattern("HH:mm")))
-                }
-                withStyle(SpanStyle(fontWeight = FontWeight.Light, fontSize = 24.sp, color = Color.Gray)) {
-                    append(":" + currentTime.format(DateTimeFormatter.ofPattern("ss")))
-                }
-            },
-            style = MaterialTheme.typography.displayLarge,
-            fontSize = 72.sp
-        )
+        Spacer(Modifier.height(20.dp))
         
-        Spacer(Modifier.height(24.dp))
+        // Premium Clock (Side-by-side)
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = currentTime.format(DateTimeFormatter.ofPattern("HH:mm")),
+                style = TextStyle(
+                    fontSize = 76.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-2).sp,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    shadow = Shadow(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        offset = Offset(0f, 8f),
+                        blurRadius = 15f
+                    )
+                )
+            )
+            Text(
+                text = ":" + currentTime.format(DateTimeFormatter.ofPattern("ss")),
+                modifier = Modifier.padding(bottom = 14.dp, start = 4.dp),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+            )
+        }
         
-        ModernDutyCard(
-            title = "현재 나의 근무지",
-            location = currentLocation,
-            range = currentRange,
-            isHighlight = true,
-            icon = Icons.Default.LocationOn
-        )
-
+        Spacer(Modifier.height(32.dp))
+        
+        PremiumDutyCard("현재 근무지", dutyInfo.currentLoc, dutyInfo.currentRange, true, Icons.Default.LocationOn)
         Spacer(Modifier.height(16.dp))
-
-        ModernDutyCard(
-            title = "다음 예정 근무지",
-            location = nextLocation,
-            range = nextStartTime,
-            isHighlight = false,
-            icon = Icons.Default.Info
-        )
+        PremiumDutyCard("다음 근무지", dutyInfo.nextLoc, dutyInfo.nextStart, false, Icons.Default.Info)
 
         Spacer(Modifier.height(24.dp))
         
-        // Countdown Section
+        // Compact Countdown
         Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.padding(horizontal = 16.dp)
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 32.dp, vertical = 20.dp),
+                modifier = Modifier.padding(vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("퇴근까지 남은 시간", style = MaterialTheme.typography.labelLarge, color = Color.Gray)
                 Text(
-                    text = DutyCore.formatDuration(remaining),
-                    style = MaterialTheme.typography.headlineLarge,
+                    "퇴근까지 남은 시간", 
+                    style = MaterialTheme.typography.labelSmall, 
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 2.sp
-                )
-            }
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        // Info Summary Footer
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "${if(settings.time == "JU1") "주간1" else "주간2"} | 편성표 ${settings.table}번 | 번호 ${settings.number}번",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = if(settings.isPt) "PT 근무 적용됨" else "일반 근무 적용됨",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                }
-                IconButton(
-                    onClick = onEdit,
-                    colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ModernDutyCard(
-    title: String, 
-    location: String, 
-    range: String, 
-    isHighlight: Boolean,
-    icon: ImageVector
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isHighlight) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlight) 6.dp else 0.dp),
-        border = if (!isHighlight) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)) else null
-    ) {
-        Row(
-            modifier = Modifier.padding(24.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title, 
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (isHighlight) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else Color.Gray
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = location, 
-                    style = MaterialTheme.typography.headlineSmall, 
-                    fontWeight = FontWeight.ExtraBold,
-                    color = if (isHighlight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                    text = DutyCore.formatDuration(dutyInfo.remaining),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 1.sp
                 )
-                if (range.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Settings, // Logic icon for shift
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = if (isHighlight) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f) else Color.Gray
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = range, 
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (isHighlight) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f) else Color.Gray
-                        )
-                    }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        // Info Summary Footer
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+            shape = RoundedCornerShape(24.dp),
+            onClick = onEdit
+        ) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = buildAnnotatedString {
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                append(if(settings.time == "JU1") "주간1" else "주간2")
+                            }
+                            append(" • 편성표 ${settings.table}번 • ${settings.number}번")
+                        },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = if(settings.isPt) "PT 근무 모드" else "일반 근무 모드",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+                }
+                Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            }
+        }
+    }
+}
+
+// --- Shared Premium UI Elements ---
+
+@Composable
+private fun PremiumDutyCard(title: String, location: String, range: String, isActive: Boolean, icon: ImageVector) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.5f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "alpha"
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon Container
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .background(
+                        if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) 
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = if (isActive) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.6f)
+                )
+                if (isActive) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .border(1.2.dp, MaterialTheme.colorScheme.primary.copy(alpha = alpha), CircleShape)
+                    )
                 }
             }
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-                tint = if (isHighlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-            )
+            
+            Spacer(Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else Color.Gray,
+                    letterSpacing = 0.2.sp
+                )
+                Spacer(Modifier.height(1.dp))
+                Text(
+                    text = location,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (range.isNotEmpty()) {
+                    Text(
+                        text = range,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray.copy(alpha = 0.7f)
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun ModernSelectableChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun PremiumSelectableChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val scale by animateFloatAsState(if (selected) 1.03f else 1f, label = "scale")
     Surface(
         onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        modifier = modifier.scale(scale),
+        shape = RoundedCornerShape(18.dp),
         color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            width = if (selected) 0.dp else 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        ),
+        border = BorderStroke(1.dp, if (selected) Color.Transparent else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
         tonalElevation = if (selected) 4.dp else 0.dp
     ) {
-        Box(
-            modifier = Modifier.padding(vertical = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-            )
+        Box(modifier = Modifier.padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, fontWeight = if (selected) FontWeight.Black else FontWeight.Medium, color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface)
         }
     }
 }
 
 @Composable
-fun SettingsModernSection(title: String, content: @Composable () -> Unit) {
+fun PremiumInputSection(title: String, icon: ImageVector, content: @Composable () -> Unit) {
     Column {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(8.dp))
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black)
+        }
         Spacer(Modifier.height(12.dp))
         content()
     }
 }
 
+// --- Dialogs ---
+
 @Composable
-fun DutyTableDialog(
-    initialIndex: Int,
-    onDismiss: () -> Unit
-) {
+fun DutyTableDialog(onDismiss: () -> Unit) {
     var userScrollEnabled by remember { mutableStateOf(true) }
-    val pagerState = rememberPagerState(initialPage = initialIndex) { 4 }
-    val tableInfo = listOf(
-        "주간1 (1, 2번)",
-        "주간1 (3, 4번)",
-        "주간2 (1번)",
-        "주간2 (2, 3번)"
-    )
-    val images = listOf(
-        R.drawable.duty_ju1_12,
-        R.drawable.duty_ju1_34,
-        R.drawable.duty_ju2_1,
-        R.drawable.duty_ju2_23
-    )
+    val pagerState = rememberPagerState { 4 }
+    val tableInfo = listOf("주간1 (1, 2번)", "주간1 (3, 4번)", "주간2 (1번)", "주간2 (2, 3번)")
+    val images = listOf(R.drawable.duty_ju1_12, R.drawable.duty_ju1_34, R.drawable.duty_ju2_1, R.drawable.duty_ju2_23)
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            dismissOnBackPress = true,
-            dismissOnClickOutside = false // 이미지 조작 중 실수로 닫히는 방지
-        )
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = Color.Black
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize(),
-                    key = { it },
-                    pageSpacing = 16.dp,
-                    beyondViewportPageCount = 1,
-                    userScrollEnabled = userScrollEnabled
-                ) { page ->
-                    ZoomableImage(
-                        resId = images[page],
-                        onZoomChanged = { isZoomed -> userScrollEnabled = !isZoomed }
-                    )
-                }
-
-                // Top Bar in Dialog
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = onDismiss,
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.3f))
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                    }
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text(
-                            text = tableInfo[pagerState.currentPage],
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), userScrollEnabled = userScrollEnabled) { page ->
+                ZoomableImage(resId = images[page], onZoomChanged = { userScrollEnabled = !it })
+            }
+            Box(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).background(Brush.verticalGradient(listOf(Color.Black.copy(0.6f), Color.Transparent))).statusBarsPadding().padding(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.background(Color.White.copy(0.1f), CircleShape)) { Icon(Icons.Default.Close, "Close", tint = Color.White) }
+                    Surface(color = Color.White.copy(0.1f), shape = RoundedCornerShape(20.dp)) {
+                        Text(tableInfo[pagerState.currentPage], color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                     }
                     Spacer(Modifier.size(48.dp))
                 }
-
-                // Indicators
-                Row(
-                    Modifier
-                        .height(50.dp)
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 24.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    repeat(4) { iteration ->
-                        val color = if (pagerState.currentPage == iteration) Color.White else Color.White.copy(alpha = 0.5f)
-                        Box(
-                            modifier = Modifier
-                                .padding(4.dp)
-                                .clip(CircleShape)
-                                .background(color)
-                                .size(8.dp)
-                        )
-                    }
+            }
+            Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 24.dp)) {
+                repeat(4) { iteration ->
+                    val isSelected = pagerState.currentPage == iteration
+                    val width by animateDpAsState(if (isSelected) 20.dp else 8.dp, label = "width")
+                    Box(modifier = Modifier.padding(4.dp).height(8.dp).width(width).clip(CircleShape).background(if (isSelected) Color.White else Color.White.copy(0.3f)))
                 }
             }
         }
@@ -674,65 +578,28 @@ fun DutyTableDialog(
 private fun ZoomableImage(resId: Int, onZoomChanged: (Boolean) -> Unit) {
     var scale by remember(resId) { mutableFloatStateOf(1f) }
     var offset by remember(resId) { mutableStateOf(Offset.Zero) }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clip(RectangleShape)
-            .pointerInput(resId) {
-                detectTapGestures(onDoubleTap = {
-                    if (scale > 1f) {
-                        scale = 1f
-                        offset = Offset.Zero
-                        onZoomChanged(false)
-                    } else {
-                        scale = 3f
-                        onZoomChanged(true)
+    Box(modifier = Modifier.fillMaxSize().pointerInput(resId) {
+        detectTapGestures(onDoubleTap = {
+            if (scale > 1f) { scale = 1f; offset = Offset.Zero; onZoomChanged(false) } else { scale = 2.5f; onZoomChanged(true) }
+        })
+    }.pointerInput(resId) {
+        awaitEachGesture {
+            awaitFirstDown(false)
+            do {
+                val event = awaitPointerEvent()
+                if (scale > 1f || event.changes.size > 1) {
+                    val zoomChange = event.calculateZoom()
+                    val panChange = event.calculatePan()
+                    if (zoomChange != 1f || panChange != Offset.Zero) {
+                        scale = (scale * zoomChange).coerceIn(1f, 5f)
+                        if (scale > 1f) offset += panChange else offset = Offset.Zero
+                        onZoomChanged(scale > 1f)
+                        event.changes.forEach { it.consume() }
                     }
-                })
-            }
-            .pointerInput(resId) {
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
-                    do {
-                        val event = awaitPointerEvent()
-                        val isMultiTouch = event.changes.size > 1
-                        
-                        // 이미지가 확대되었거나, 두 손가락으로 줌을 시도할 때
-                        if (scale > 1f || isMultiTouch) {
-                            val zoomChange = event.calculateZoom()
-                            val panChange = event.calculatePan()
-                            
-                            // 실제 변화가 있을 때만 이벤트를 소비(Consume)
-                            // 이렇게 해야 DOWN/UP 이벤트가 통과되어 더블 탭이 작동함
-                            if (zoomChange != 1f || panChange != Offset.Zero) {
-                                val newScale = (scale * zoomChange).coerceIn(1f, 5f)
-                                scale = newScale
-                                if (scale > 1f) {
-                                    offset += panChange
-                                } else {
-                                    offset = Offset.Zero
-                                }
-                                onZoomChanged(scale > 1f)
-                                event.changes.forEach { it.consume() }
-                            }
-                        }
-                    } while (event.changes.any { it.pressed })
                 }
-            }
-    ) {
-        Image(
-            painter = painterResource(id = resId),
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    translationX = offset.x
-                    translationY = offset.y
-                },
-            contentScale = ContentScale.Fit
-        )
+            } while (event.changes.any { it.pressed })
+        }
+    }) {
+        Image(painter = painterResource(resId), null, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y }, contentScale = ContentScale.Fit)
     }
 }

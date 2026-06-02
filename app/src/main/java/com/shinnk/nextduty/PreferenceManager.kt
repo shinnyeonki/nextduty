@@ -21,7 +21,6 @@ class PreferenceManager(private val context: Context) {
         val LAST_SAVED_DATE = stringPreferencesKey("last_saved_date")
         val IS_APP_ACTIVE = booleanPreferencesKey("is_app_active")
         val WORK_SCHEDULE_IMAGES = stringSetPreferencesKey("work_schedule_images")
-        val SCHEDULED_ALARM_COUNT = intPreferencesKey("scheduled_alarm_count")
     }
 
     val workScheduleImages: Flow<List<String>> = context.dataStore.data.map { preferences ->
@@ -36,10 +35,6 @@ class PreferenceManager(private val context: Context) {
 
     val ptStatus: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[PT_STATUS] ?: false
-    }
-
-    val scheduledAlarmCount: Flow<Int> = context.dataStore.data.map { preferences ->
-        preferences[SCHEDULED_ALARM_COUNT] ?: 0
     }
 
     val dutySettings: Flow<DutySettings?> = context.dataStore.data.map { preferences ->
@@ -72,12 +67,6 @@ class PreferenceManager(private val context: Context) {
     suspend fun saveWorkScheduleImages(images: List<String>) {
         context.dataStore.edit { preferences ->
             preferences[WORK_SCHEDULE_IMAGES] = images.toSet()
-        }
-    }
-
-    suspend fun saveScheduledAlarmCount(count: Int) {
-        context.dataStore.edit { preferences ->
-            preferences[SCHEDULED_ALARM_COUNT] = count
         }
     }
 

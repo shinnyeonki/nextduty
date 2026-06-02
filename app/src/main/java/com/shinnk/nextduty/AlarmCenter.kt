@@ -10,9 +10,7 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
-import android.widget.Toast
 import androidx.core.app.NotificationCompat
-import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -21,46 +19,42 @@ class AlarmCenter(private val context: Context) {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    private val prefs = PreferenceManager(context)
 
     companion object {
         const val NOTIFICATION_ID = 1001
-        const val CHANNEL_ID = "duty_alarm_channel_v3"
-        const val MAX_ALARM_COUNT = 50 // 리팩토링: 취소 동작의 확실성을 위한 상수 정의
+        const val CHANNEL_ID = "duty_alarm_channel_v4"
+        const val ALARM_REQUEST_CODE_RANGE = 50 
     }
 
-    suspend fun scheduleAlarms(time: String, table: Int, number: Int, isPt: Boolean) {
-        // [권한 체크] 정확한 알람 권한 확인 및 피드백
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (!alarmManager.canScheduleExactAlarms()) {
-                Toast.makeText(context, "정확한 알람 권한이 없어 알람이 예약되지 않았습니다.", Toast.LENGTH_LONG).show()
-                return
-            }
-        }
-
-        val alarms = DutyCore.getAlarmSchedules(time, table, number, isPt)
-        
+    /**
+     * 알람 예약 로직 단순화: 기존 알람을 모두 취소하고 새로 등록합니다.
+     */
+    fun scheduleAlarms(time: String, table: Int, number: Int, isPt: Boolean) {
+        // 1. 기존에 예약된 모든 알람 취소
         cancelAllAlarms()
 
+        // 2. 정확한 알람 권한 체크 (Android 12 이상)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) return
+        }
+
+        // 3. 오늘 기준 남은 근무 알람들 가져오기
+        val alarms = DutyCore.getAlarmSchedules(time, table, number, isPt)
         val now = LocalTime.now()
         val today = LocalDate.now()
-        var scheduledCount = 0
 
-        // 알람 상태바 아이콘을 클릭했을 때 열릴 화면 설정
-        val showAppIntent = Intent(context, MainActivity::class.java).apply {
+        // 알림 클릭 시 앱 실행을 위한 인텐트
+        val mainIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
-        val showAppPendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            showAppIntent,
-            PendingIntent.FLAG_IMMUTABLE
+        val mainPendingIntent = PendingIntent.getActivity(
+            context, 0, mainIntent, PendingIntent.FLAG_IMMUTABLE
         )
 
         alarms.forEachIndexed { index, alarm ->
-            // [방어 코드] 상수를 넘지 않도록 제한
-            if (index >= MAX_ALARM_COUNT) return@forEachIndexed
+            if (index >= ALARM_REQUEST_CODE_RANGE) return@forEachIndexed
 
+            // 이미 지난 시간의 알람은 등록하지 않음
             if (alarm.triggerTime.isAfter(now)) {
                 val intent = Intent(context, AlarmReceiver::class.java).apply {
                     putExtra("location", alarm.location)
@@ -80,32 +74,33 @@ class AlarmCenter(private val context: Context) {
                     .toInstant()
                     .toEpochMilli()
 
-                // setAlarmClock을 사용하여 시스템 알람 수준의 우선순위 부여
-                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, showAppPendingIntent)
+                // 시스템 알람 시계 아이콘이 표시되는 가장 확실한 알람 방식 사용
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, mainPendingIntent)
                 alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
-                scheduledCount++
             }
         }
-        // 예약된 알람 개수 저장
-        prefs.saveScheduledAlarmCount(scheduledCount)
     }
 
-    suspend fun cancelAllAlarms() {
-        val count = prefs.scheduledAlarmCount.first()
-        // 저장된 개수만큼만 취소하거나, 안전을 위해 최소 MAX_ALARM_COUNT만큼 취소
-        val cancelLimit = maxOf(count, MAX_ALARM_COUNT)
-        
-        for (i in 0 until cancelLimit) {
+    /**
+     * 알람 취소 로직: 설정된 범위 내의 모든 RequestCode에 대해 취소 명령을 내립니다.
+     */
+    fun cancelAllAlarms() {
+        for (i in 0 until ALARM_REQUEST_CODE_RANGE) {
             val intent = Intent(context, AlarmReceiver::class.java)
             val pendingIntent = PendingIntent.getBroadcast(
                 context, i, intent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_NO_CREATE
             )
-            alarmManager.cancel(pendingIntent)
+            if (pendingIntent != null) {
+                alarmManager.cancel(pendingIntent)
+                pendingIntent.cancel()
+            }
         }
-        prefs.saveScheduledAlarmCount(0)
     }
 
+    /**
+     * 알림 표시: 채널을 생성하고 중요도 높은 알림을 띄웁니다.
+     */
     fun showAlarmNotification(location: String, startTime: String) {
         val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
@@ -116,19 +111,18 @@ class AlarmCenter(private val context: Context) {
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .build()
 
-            val channel = NotificationChannel(CHANNEL_ID, "근무 알람 (긴급)", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "근무 시작 전 강력한 알람"
+            val channel = NotificationChannel(CHANNEL_ID, "근무 이동 알람", NotificationManager.IMPORTANCE_HIGH).apply {
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 500, 200, 500)
                 setSound(alarmSound, audioAttributes)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-                setBypassDnd(true) // 방해 금지 모드 무시
+                setBypassDnd(true)
             }
             notificationManager.createNotificationChannel(channel)
         }
 
         val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_USER_ACTION
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("location", location)
             putExtra("startTime", startTime)
         }
@@ -140,19 +134,17 @@ class AlarmCenter(private val context: Context) {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("근무 이동 알림 (5분 전)")
+            .setContentTitle("근무 이동 알림")
             .setContentText("[$startTime] $location 이동 준비하세요!")
-            .setPriority(NotificationCompat.PRIORITY_MAX) // 최대 우선순위
-            .setCategory(NotificationCompat.CATEGORY_ALARM) // 알람 카테고리 설정
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setAutoCancel(false) // 사용자가 확인하기 전까지 유지
-            .setOngoing(true) // 스와이프로 삭제 불가
+            .setFullScreenIntent(pendingIntent, true) // 화면 꺼져있을 때 즉시 띄우기
             .setSound(alarmSound)
-            .setContentIntent(pendingIntent)
-            .setFullScreenIntent(pendingIntent, true) // 화면이 꺼져있을 때 즉시 화면을 띄움
+            .setOngoing(true) // 사용자가 확인할 때까지 유지
+            .setAutoCancel(true)
             .build()
 
-        notification.flags = notification.flags or Notification.FLAG_INSISTENT
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 

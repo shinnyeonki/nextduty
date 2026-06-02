@@ -80,6 +80,7 @@ fun PatrolDialog(onDismiss: () -> Unit) {
     }
 
     var pendingCheckIndex by remember { mutableStateOf<Int?>(null) }
+    var pendingUncheckIndex by remember { mutableStateOf<Int?>(null) }
     var showResetConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(checkedIndices) {
@@ -119,6 +120,32 @@ fun PatrolDialog(onDismiss: () -> Unit) {
             dismissButton = {
                 TextButton(onClick = { pendingCheckIndex = null }) {
                     Text("취소", color = Color.Gray)
+                }
+            }
+        )
+    }
+
+    if (pendingUncheckIndex != null) {
+        AlertDialog(
+            onDismissRequest = { pendingUncheckIndex = null },
+            shape = RoundedCornerShape(28.dp),
+            title = { Text("순찰 취소", fontWeight = FontWeight.Black) },
+            text = { Text("\"${PATROL_POINTS[pendingUncheckIndex!!]}\"\n순찰 확인을 취소하시겠습니까?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        checkedIndices = checkedIndices - pendingUncheckIndex!!
+                        pendingUncheckIndex = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("기록 취소", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingUncheckIndex = null }) {
+                    Text("닫기")
                 }
             }
         )
@@ -255,6 +282,8 @@ fun PatrolDialog(onDismiss: () -> Unit) {
                         onClick = {
                             if (!isChecked) {
                                 pendingCheckIndex = index
+                            } else {
+                                pendingUncheckIndex = index
                             }
                         }
                     )

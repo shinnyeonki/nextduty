@@ -37,11 +37,10 @@ object DutyCore {
     private val ju1_table1 = listOf(
         TimeSlot("08:00", "09:00", listOf("대형버스주차장", "2층로비", "1층로비", "근무없음")),
         TimeSlot("09:00", "10:00", listOf("제1버스주차장/나래울입구", "1층로비", "대형버스주차장", "근무없음")),
-        TimeSlot("10:00", "11:00", listOf("2층로비", "대형버스주차장", "제1버스주차장/나래울입구", "근무없음")),
+        TimeSlot("10:00", "11:00", listOf("1층로비", "대형버스주차장", "제1버스주차장/나래울입구", "근무없음")),
         TimeSlot("11:00", "11:20", listOf("제1버스주차장/나래울입구", "식당앞 E/S", "어체앞 E/S", "근무없음")),
         TimeSlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간", "점심시간")),
-        TimeSlot("12:40", "13:00", listOf("제1버스주차장/나래울입구", "식당앞 E/S", "어체앞 E/S", "근무없음")),
-        TimeSlot("13:00", "14:00", listOf("1층로비", "대형버스주차장", "2층로비", "근무없음")),
+        TimeSlot("12:40", "14:00", listOf("1층로비", "대형버스주차장", "2층로비", "근무없음")),
         TimeSlot("14:00", "15:00", listOf("어체앞 E/S", "제1버스주차장/나래울입구", "식당앞 E/S", "근무없음")),
         TimeSlot("15:00", "16:00", listOf("식당앞 E/S", "어체앞 E/S", "제1버스주차장/나래울입구", "근무없음")),
         TimeSlot("16:00", "17:00", listOf("제1버스주차장/나래울입구", "식당앞 E/S", "어체앞 E/S", "근무없음"))
@@ -53,8 +52,7 @@ object DutyCore {
         TimeSlot("10:00", "11:00", listOf("1층로비", "나래울입구(초소)", "2층로비", "근무없음")),
         TimeSlot("11:00", "11:20", listOf("나래울입구(초소)", "어체앞 E/S", "식당앞 E/S", "근무없음")),
         TimeSlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간", "점심시간")),
-        TimeSlot("12:40", "13:00", listOf("나래울입구(초소)", "어체앞 E/S", "식당앞 E/S", "근무없음")),
-        TimeSlot("13:00", "14:00", listOf("1층로비", "나래울입구(초소)", "2층로비", "근무없음")),
+        TimeSlot("12:40", "14:00", listOf("1층로비", "나래울입구(초소)", "2층로비", "근무없음")),
         TimeSlot("14:00", "15:00", listOf("어체앞 E/S", "순찰(본관/숙련관)", "식당앞 E/S", "근무없음")),
         TimeSlot("15:00", "16:00", listOf("식당앞 E/S", "어체앞 E/S", "순찰(본관/숙련관)", "근무없음")),
         TimeSlot("16:00", "17:00", listOf("순찰(본관/숙련관)", "식당앞 E/S", "어체앞 E/S", "근무없음"))
@@ -66,8 +64,7 @@ object DutyCore {
         TimeSlot("10:00", "11:00", listOf("1층로비", "나래울입구(초소)", "2층로비", "근무없음")),
         TimeSlot("11:00", "11:20", listOf("나래울입구(초소)", "어체앞 E/S", "식당앞 E/S", "근무없음")),
         TimeSlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간", "점심시간")),
-        TimeSlot("12:40", "13:00", listOf("나래울입구(초소)", "어체앞 E/S", "식당앞 E/S", "근무없음")),
-        TimeSlot("13:00", "14:00", listOf("1층로비", "나래울입구(초소)", "2층로비", "근무없음")),
+        TimeSlot("12:40", "14:00", listOf("1층로비", "나래울입구(초소)", "2층로비", "근무없음")),
         TimeSlot("14:00", "15:00", listOf("식당앞 E/S", "어체앞 E/S", "나래울입구(초소)", "근무없음")),
         TimeSlot("15:00", "16:00", listOf("나래울입구(초소)", "식당앞 E/S", "어체앞 E/S", "근무없음")),
         TimeSlot("16:00", "17:00", listOf("어체앞 E/S", "나래울입구(초소)", "식당앞 E/S", "근무없음"))
@@ -79,8 +76,7 @@ object DutyCore {
         TimeSlot("10:00", "11:00", listOf("2층로비", "1층로비", "대형버스주차장", "제1버스주차장/나래울입구")),
         TimeSlot("11:00", "11:20", listOf("순찰(본관/숙련관)", "어체앞 E/S", "제1버스주차장/나래울입구", "식당앞 E/S")),
         TimeSlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간", "점심시간")),
-        TimeSlot("12:40", "13:00", listOf("순찰(본관/숙련관)", "어체앞 E/S", "제1버스주차장/나래울입구", "식당앞 E/S")),
-        TimeSlot("13:00", "14:00", listOf("대형버스주차장", "제1버스주차장/나래울입구", "2층로비", "1층로비")),
+        TimeSlot("12:40", "14:00", listOf("대형버스주차장", "제1버스주차장/나래울입구", "2층로비", "1층로비")),
         TimeSlot("14:00", "15:00", listOf("제1버스주차장/나래울입구", "어체앞 E/S", "식당앞 E/S", "순찰(본관/숙련관)")),
         TimeSlot("15:00", "16:00", listOf("어체앞 E/S", "식당앞 E/S", "순찰(본관/숙련관)", "제1버스주차장/나래울입구")),
         TimeSlot("16:00", "17:00", listOf("식당앞 E/S", "순찰(본관/숙련관)", "제1버스주차장/나래울입구", "어체앞 E/S"))
@@ -115,10 +111,10 @@ object DutyCore {
         TimeSlot("11:00", "12:00", listOf("2층로비", "1층로비", "근무없음")),
         TimeSlot("12:00", "12:40", listOf("1층로비", "2층로비", "근무없음")),
         TimeSlot("12:40", "14:00", listOf("점심시간", "점심시간", "점심시간")),
-        TimeSlot("14:00", "15:00", listOf("1층로비", "2층로비", "근무없음")),
-        TimeSlot("15:00", "16:00", listOf("2층로비", "1층로비", "근무없음")),
-        TimeSlot("16:00", "17:00", listOf("1층로비", "2층로비", "근무없음")),
-        TimeSlot("17:00", "18:00", listOf("2층로비", "1층로비", "근무없음")),
+        TimeSlot("14:00", "15:00", listOf("2층로비", "1층로비", "근무없음")),
+        TimeSlot("15:00", "16:00", listOf("1층로비", "2층로비", "근무없음")),
+        TimeSlot("16:00", "17:00", listOf("2층로비", "1층로비", "근무없음")),
+        TimeSlot("17:00", "18:00", listOf("1층로비", "2층로비", "근무없음")),
         TimeSlot("18:00", "19:00", listOf("2층로비", "근무없음", "근무없음")),
         TimeSlot("19:00", "20:00", listOf("2층로비", "근무없음", "근무없음"))
     )
@@ -205,25 +201,22 @@ object DutyCore {
 
         val alarms = mutableListOf<DutyAlarm>()
 
-        // 1. 첫 근무 시작 5분 전 알람
-        alarms.add(DutyAlarm(
-            triggerTime = slots.first().startTime.minusMinutes(5),
-            displayStartTime = slots.first().displayStartTime,
-            location = slots.first().location
-        ))
-
-        // 2. 각 슬롯의 종료 5분 전 알람 (다음 이동지 알림)
-        slots.forEachIndexed { index, slot ->
-            val nextSlot = slots.getOrNull(index + 1)
-            val nextLoc = nextSlot?.location ?: "업무 종료"
-            val nextTime = nextSlot?.displayStartTime ?: slot.endTime.toString()
-
+        // 1. 모든 근무 시작 5분 전 알람 등록 (중간 공백 시간이 있어도 각각 시작 5분 전에 정확히 울림)
+        slots.forEach { slot ->
             alarms.add(DutyAlarm(
-                triggerTime = slot.endTime.minusMinutes(5),
-                displayStartTime = nextTime,
-                location = nextLoc
+                triggerTime = slot.startTime.minusMinutes(5),
+                displayStartTime = slot.displayStartTime,
+                location = slot.location
             ))
         }
+
+        // 2. 마지막 근무 종료 5분 전 알람 등록 (퇴근 알림)
+        val lastSlot = slots.last()
+        alarms.add(DutyAlarm(
+            triggerTime = lastSlot.endTime.minusMinutes(5),
+            displayStartTime = lastSlot.endTime.toString(),
+            location = "업무 종료"
+        ))
 
         // 중복 시간 제거 및 정렬
         return alarms.distinctBy { it.triggerTime }.sortedBy { it.triggerTime }

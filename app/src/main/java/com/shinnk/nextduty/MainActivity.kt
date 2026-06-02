@@ -81,6 +81,11 @@ class MainActivity : ComponentActivity() {
                 onSavePtStatus = { status ->
                     lifecycleScope.launch {
                         preferenceManager.savePtStatus(status)
+                        if (isAppActive) {
+                            dutySettings?.let { settings ->
+                                alarmCenter.scheduleAlarms(settings.time, settings.table, settings.number, status)
+                            }
+                        }
                     }
                 },
                 onSaveAppActiveStatus = { isActive ->

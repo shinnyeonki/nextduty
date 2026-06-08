@@ -20,13 +20,18 @@ class PreferenceManager(private val context: Context) {
         val DUTY_NUMBER = intPreferencesKey("duty_number") // 1, 2, 3, 4
         val LAST_SAVED_DATE = stringPreferencesKey("last_saved_date")
         val IS_APP_ACTIVE = booleanPreferencesKey("is_app_active")
-        val WORK_SCHEDULE_IMAGES = stringSetPreferencesKey("work_schedule_images")
+        val WORK_SCHEDULE_IMAGES = stringPreferencesKey("work_schedule_images_list")
     }
 
     val workScheduleImages: Flow<List<String>> = context.dataStore.data.map { preferences ->
-        val paths = preferences[WORK_SCHEDULE_IMAGES]?.toList() ?: emptyList()
-        // 실제 파일이 존재하는 것들만 필터링 (엣지케이스 방지)
-        paths.filter { File(it).exists() }
+        val serialized = preferences[WORK_SCHEDULE_IMAGES] ?: ""
+        val paths = if (serialized.isEmpty()) emptyList() else serialized.split("|")
+        
+        // 실제 파일이 존재하는 것들만 필터링 (상대 경로 고려)
+        paths.filter { path ->
+            val file = if (path.startsWith("/")) File(path) else File(context.filesDir, path)
+            file.exists()
+        }
     }
 
     val isAppActive: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -66,7 +71,7 @@ class PreferenceManager(private val context: Context) {
 
     suspend fun saveWorkScheduleImages(images: List<String>) {
         context.dataStore.edit { preferences ->
-            preferences[WORK_SCHEDULE_IMAGES] = images.toSet()
+            preferences[WORK_SCHEDULE_IMAGES] = images.joinToString("|")
         }
     }
 

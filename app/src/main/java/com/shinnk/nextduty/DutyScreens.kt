@@ -14,7 +14,6 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +43,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.core.content.FileProvider
 import java.io.File
 import android.net.Uri
@@ -61,7 +63,8 @@ object ImageStorage {
     fun saveUriToInternal(context: android.content.Context, uri: Uri): String? {
         return try {
             val fileName = "duty_${System.currentTimeMillis()}_${(100..999).random()}.jpg"
-            val destFile = File(context.filesDir, "work_schedules/$fileName")
+            val relativePath = "work_schedules/$fileName"
+            val destFile = File(context.filesDir, relativePath)
             destFile.parentFile?.mkdirs()
             
             context.contentResolver.openInputStream(uri)?.use { input ->
@@ -69,15 +72,15 @@ object ImageStorage {
                     input.copyTo(output)
                 }
             }
-            destFile.absolutePath
+            relativePath
         } catch (e: Exception) {
             null
         }
     }
 
-    fun deleteFile(path: String) {
+    fun deleteFile(context: android.content.Context, path: String) {
         try {
-            val file = File(path)
+            val file = if (path.startsWith("/")) File(path) else File(context.filesDir, path)
             if (file.exists()) file.delete()
         } catch (e: Exception) { /* ignore */ }
     }
@@ -385,11 +388,15 @@ private fun PtStatusCard(ptStatus: Boolean, onSavePtStatus: (Boolean) -> Unit) {
 @Composable
 fun StatusScreen(settings: DutySettings, onEdit: () -> Unit) {
     var currentTime by remember { mutableStateOf(LocalTime.now()) }
+    val lifecycleOwner = LocalLifecycleOwner.current
     
-    LaunchedEffect(Unit) {
-        while (true) {
-            currentTime = LocalTime.now()
-            delay(1000)
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                currentTime = LocalTime.now()
+                val delayMillis = 1000L - (System.currentTimeMillis() % 1000L)
+                delay(delayMillis)
+            }
         }
     }
 
@@ -625,6 +632,7 @@ fun WorkScheduleDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    var userScrollEnabled by remember { mutableStateOf(true) }
     val pagerState = rememberPagerState { images.size }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     
@@ -648,7 +656,7 @@ fun WorkScheduleDialog(
                         val pathToRemove = images[pagerState.currentPage]
                         val newList = images.toMutableList().apply { removeAt(pagerState.currentPage) }
                         onSaveImages(newList)
-                        ImageStorage.deleteFile(pathToRemove)
+                        ImageStorage.deleteFile(context, pathToRemove)
                         showDeleteConfirm = false
                     }
                 ) {
@@ -676,10 +684,11 @@ fun WorkScheduleDialog(
                     Text("등록된 근무표가 없습니다.", color = Color.White.copy(0.5f))
                 }
             } else {
-                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize(), userScrollEnabled = userScrollEnabled) { page ->
                     val path = images[page]
-                    if (File(path).exists()) {
-                        ZoomableAsyncImage(model = File(path))
+                    val file = if (path.startsWith("/")) File(path) else File(context.filesDir, path)
+                    if (file.exists()) {
+                        ZoomableAsyncImage(model = file, onZoomChanged = { userScrollEnabled = !it })
                     } else {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("이미지를 찾을 수 없습니다.", color = Color.White)
@@ -724,12 +733,19 @@ fun WorkScheduleDialog(
 }
 
 @Composable
-private fun ZoomableAsyncImage(model: Any) {
+private fun ZoomableAsyncImage(model: Any, onZoomChanged: (Boolean) -> Unit) {
     var scale by remember(model) { mutableFloatStateOf(1f) }
     var offset by remember(model) { mutableStateOf(Offset.Zero) }
     Box(modifier = Modifier.fillMaxSize().pointerInput(model) {
         detectTapGestures(onDoubleTap = {
-            if (scale > 1f) { scale = 1f; offset = Offset.Zero } else { scale = 2.5f }
+            if (scale > 1f) {
+                scale = 1f
+                offset = Offset.Zero
+                onZoomChanged(false)
+            } else {
+                scale = 2.5f
+                onZoomChanged(true)
+            }
         })
     }.pointerInput(model) {
         awaitEachGesture {
@@ -742,6 +758,7 @@ private fun ZoomableAsyncImage(model: Any) {
                     if (zoomChange != 1f || panChange != Offset.Zero) {
                         scale = (scale * zoomChange).coerceIn(1f, 5f)
                         if (scale > 1f) offset += panChange else offset = Offset.Zero
+                        onZoomChanged(scale > 1f)
                         event.changes.forEach { it.consume() }
                     }
                 }

@@ -83,19 +83,21 @@ class AlarmCenter(private val context: Context) {
 
     /**
      * 알람 취소 로직: 설정된 범위 내의 모든 RequestCode에 대해 취소 명령을 내립니다.
+     * FLAG_NO_CREATE 대신 FLAG_UPDATE_CURRENT를 사용하여 시스템에 남아있을 수 있는 PendingIntent 매칭 누락을 방지하고
+     * 알람 매니저에서 확실히 취소한 다음, PendingIntent 자체도 cancel하여 리소스를 정리합니다.
      */
     fun cancelAllAlarms() {
         for (i in 0 until ALARM_REQUEST_CODE_RANGE) {
             val intent = Intent(context, AlarmReceiver::class.java)
             val pendingIntent = PendingIntent.getBroadcast(
                 context, i, intent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_NO_CREATE
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
-            if (pendingIntent != null) {
-                alarmManager.cancel(pendingIntent)
-                pendingIntent.cancel()
-            }
+            alarmManager.cancel(pendingIntent)
+            pendingIntent.cancel()
         }
+        // 활성화된 알림창이 있다면 함께 닫음
+        dismissAlarm()
     }
 
     /**

@@ -31,17 +31,16 @@ class AlarmActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         // 화면 깨우기 및 잠금 화면 위에 표시 설정
+        // 잠금 화면 위에 정상적으로 액티비티를 띄우기 위해 설정하며,
+        // onCreate에서 키가드 해제를 직접 요청하지 않아야 keyguard 상태 변화로 인한 즉시 Pause/Finish 문제를 예방할 수 있습니다.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
-            keyguardManager.requestDismissKeyguard(this, null)
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
             )
         }
         
@@ -100,10 +99,18 @@ class AlarmActivity : ComponentActivity() {
         finish()
     }
 
-    override fun onPause() {
-        super.onPause()
-        // [동작 완결성] 전화를 받거나 홈 버튼을 누르는 등 화면을 벗어나면 사용자가 인지한 것으로 간주하고 소리를 끄고 종료합니다.
-        // 이는 알람이 무한정 울리는 것을 방지하고, 모든 종료 경로에서 동일한 종료 루틴(dismissAlarm)을 수행하도록 보장합니다.
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // 홈 버튼을 누르거나 다른 앱이 포그라운드로 올 때 (전화 수신 등) 알람을 안전하게 종료합니다.
+        if (!isFinishing) {
+            dismissAlarm()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // 화면 꺼짐(전원 버튼 누름, 화면 타임아웃) 또는 앱이 완전히 가려졌을 때 알람을 안전하게 종료합니다.
+        // 잠금화면 최초 표시 시 발생하는 onPause 이벤트를 회피하고, 실제 화면이 꺼지는 등의 경우에만 완결성 있게 동작하도록 보장합니다.
         if (!isFinishing) {
             dismissAlarm()
         }

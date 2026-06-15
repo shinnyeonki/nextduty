@@ -27,8 +27,7 @@ class BootReceiver : BroadcastReceiver() {
                         
                         // 알람 재등록
                         alarmCenter.scheduleAlarms(
-                            time = settings.time,
-                            table = settings.table,
+                            tableName = settings.tableName,
                             number = settings.number,
                             isPt = settings.isPt
                         )
@@ -36,7 +35,7 @@ class BootReceiver : BroadcastReceiver() {
                         // 방금(10분 이내) 지난 알람이 있다면 즉시 알림
                         val now = LocalTime.now()
                         val missedAlarms = DutyCore.getAlarmSchedules(
-                            settings.time, settings.table, settings.number, settings.isPt
+                            settings.tableName, settings.number, settings.isPt
                         ).filter { 
                             it.triggerTime.isBefore(now) && it.triggerTime.isAfter(now.minusMinutes(10))
                         }

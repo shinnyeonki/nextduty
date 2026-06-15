@@ -26,24 +26,17 @@ class AlarmCenter(private val context: Context) {
         const val ALARM_REQUEST_CODE_RANGE = 50 
     }
 
-    /**
-     * 알람 예약 로직 단순화: 기존 알람을 모두 취소하고 새로 등록합니다.
-     */
-    fun scheduleAlarms(time: String, table: Int, number: Int, isPt: Boolean) {
-        // 1. 기존에 예약된 모든 알람 취소
+    fun scheduleAlarms(tableName: String, number: Int, isPt: Boolean) {
         cancelAllAlarms()
 
-        // 2. 정확한 알람 권한 체크 (Android 12 이상)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (!alarmManager.canScheduleExactAlarms()) return
         }
 
-        // 3. 오늘 기준 남은 근무 알람들 가져오기
-        val alarms = DutyCore.getAlarmSchedules(time, table, number, isPt)
+        val alarms = DutyCore.getAlarmSchedules(tableName, number, isPt)
         val now = LocalTime.now()
         val today = LocalDate.now()
 
-        // 알림 클릭 시 앱 실행을 위한 인텐트
         val mainIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -54,7 +47,6 @@ class AlarmCenter(private val context: Context) {
         alarms.forEachIndexed { index, alarm ->
             if (index >= ALARM_REQUEST_CODE_RANGE) return@forEachIndexed
 
-            // 이미 지난 시간의 알람은 등록하지 않음
             if (alarm.triggerTime.isAfter(now)) {
                 val intent = Intent(context, AlarmReceiver::class.java).apply {
                     putExtra("location", alarm.location)
@@ -74,18 +66,12 @@ class AlarmCenter(private val context: Context) {
                     .toInstant()
                     .toEpochMilli()
 
-                // 시스템 알람 시계 아이콘이 표시되는 가장 확실한 알람 방식 사용
                 val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerAtMillis, mainPendingIntent)
                 alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
             }
         }
     }
 
-    /**
-     * 알람 취소 로직: 설정된 범위 내의 모든 RequestCode에 대해 취소 명령을 내립니다.
-     * FLAG_NO_CREATE 대신 FLAG_UPDATE_CURRENT를 사용하여 시스템에 남아있을 수 있는 PendingIntent 매칭 누락을 방지하고
-     * 알람 매니저에서 확실히 취소한 다음, PendingIntent 자체도 cancel하여 리소스를 정리합니다.
-     */
     fun cancelAllAlarms() {
         for (i in 0 until ALARM_REQUEST_CODE_RANGE) {
             val intent = Intent(context, AlarmReceiver::class.java)
@@ -96,13 +82,9 @@ class AlarmCenter(private val context: Context) {
             alarmManager.cancel(pendingIntent)
             pendingIntent.cancel()
         }
-        // 활성화된 알림창이 있다면 함께 닫음
         dismissAlarm()
     }
 
-    /**
-     * 알림 표시: 채널을 생성하고 중요도 높은 알림을 띄웁니다.
-     */
     fun showAlarmNotification(location: String, startTime: String) {
         val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
@@ -141,9 +123,9 @@ class AlarmCenter(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setFullScreenIntent(pendingIntent, true) // 화면 꺼져있을 때 즉시 띄우기
+            .setFullScreenIntent(pendingIntent, true)
             .setSound(alarmSound)
-            .setOngoing(true) // 사용자가 확인할 때까지 유지
+            .setOngoing(true)
             .setAutoCancel(true)
             .build()
 

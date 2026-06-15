@@ -17,19 +17,18 @@ class PreferenceManager(private val context: Context) {
 
     companion object {
         val PT_STATUS = booleanPreferencesKey("pt_status")
-        val DUTY_TIME = stringPreferencesKey("duty_time") // JU1, JU2
-        val DUTY_TABLE = intPreferencesKey("duty_table") // 1, 2, 3, 4
-        val DUTY_NUMBER = intPreferencesKey("duty_number") // 1, 2, 3, 4
+        val DUTY_TABLE_NAME = stringPreferencesKey("duty_table_name") // e.g., "주1-1"
+        val DUTY_NUMBER = intPreferencesKey("duty_number") // 1, 2, 3
         val LAST_SAVED_DATE = stringPreferencesKey("last_saved_date")
         val IS_APP_ACTIVE = booleanPreferencesKey("is_app_active")
         val WORK_SCHEDULE_IMAGES = stringPreferencesKey("work_schedule_images_list")
         val CUSTOM_DUTY_TABLES = stringPreferencesKey("custom_duty_tables")
     }
 
-    val customDutyTables: Flow<Map<String, List<TimeSlot>>?> = context.dataStore.data.map { preferences ->
+    val customDutyTables: Flow<List<DutyTable>?> = context.dataStore.data.map { preferences ->
         val serialized = preferences[CUSTOM_DUTY_TABLES] ?: return@map null
         try {
-            Json.decodeFromString<Map<String, List<TimeSlot>>>(serialized)
+            Json.decodeFromString<List<DutyTable>>(serialized)
         } catch (e: Exception) {
             null
         }
@@ -39,7 +38,6 @@ class PreferenceManager(private val context: Context) {
         val serialized = preferences[WORK_SCHEDULE_IMAGES] ?: ""
         val paths = if (serialized.isEmpty()) emptyList() else serialized.split("|")
         
-        // 실제 파일이 존재하는 것들만 필터링 (상대 경로 고려)
         paths.filter { path ->
             val file = if (path.startsWith("/")) File(path) else File(context.filesDir, path)
             file.exists()
@@ -59,11 +57,10 @@ class PreferenceManager(private val context: Context) {
         val today = LocalDate.now().toString()
         
         if (lastDate == today) {
-            val time = preferences[DUTY_TIME] ?: return@map null
-            val table = preferences[DUTY_TABLE] ?: return@map null
+            val tableName = preferences[DUTY_TABLE_NAME] ?: return@map null
             val number = preferences[DUTY_NUMBER] ?: return@map null
             val isPt = preferences[PT_STATUS] ?: false
-            DutySettings(time, table, number, isPt)
+            DutySettings(tableName, number, isPt)
         } else {
             null
         }
@@ -87,10 +84,9 @@ class PreferenceManager(private val context: Context) {
         }
     }
 
-    suspend fun saveDutySettings(time: String, table: Int, number: Int, isPt: Boolean) {
+    suspend fun saveDutySettings(tableName: String, number: Int, isPt: Boolean) {
         context.dataStore.edit { preferences ->
-            preferences[DUTY_TIME] = time
-            preferences[DUTY_TABLE] = table
+            preferences[DUTY_TABLE_NAME] = tableName
             preferences[DUTY_NUMBER] = number
             preferences[PT_STATUS] = isPt
             preferences[LAST_SAVED_DATE] = LocalDate.now().toString()
@@ -99,27 +95,19 @@ class PreferenceManager(private val context: Context) {
 
     suspend fun clearDailySettings() {
         context.dataStore.edit { preferences ->
-            preferences.remove(DUTY_TIME)
-            preferences.remove(DUTY_TABLE)
+            preferences.remove(DUTY_TABLE_NAME)
             preferences.remove(DUTY_NUMBER)
             preferences.remove(LAST_SAVED_DATE)
         }
     }
 
-    suspend fun saveCustomDutyTables(map: Map<String, List<TimeSlot>>?) {
+    suspend fun saveCustomDutyTables(tables: List<DutyTable>?) {
         context.dataStore.edit { preferences ->
-            if (map == null) {
+            if (tables == null) {
                 preferences.remove(CUSTOM_DUTY_TABLES)
             } else {
-                preferences[CUSTOM_DUTY_TABLES] = Json.encodeToString(map)
+                preferences[CUSTOM_DUTY_TABLES] = Json.encodeToString(tables)
             }
         }
     }
 }
-
-data class DutySettings(
-    val time: String,
-    val table: Int,
-    val number: Int,
-    val isPt: Boolean
-)

@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
             val customDutyTables by preferenceManager.customDutyTables.collectAsState(initial = null)
 
             LaunchedEffect(customDutyTables) {
-                DutyCore.setCustomMap(customDutyTables)
+                DutyCore.setCustomTables(customDutyTables)
             }
 
             DutyApp(
@@ -66,11 +66,11 @@ class MainActivity : ComponentActivity() {
                 ptStatus = ptStatus,
                 isAppActive = isAppActive,
                 workScheduleImages = workScheduleImages,
-                onSaveSettings = { time, table, number ->
+                onSaveSettings = { tableName, number ->
                     lifecycleScope.launch {
-                        preferenceManager.saveDutySettings(time, table, number, ptStatus)
+                        preferenceManager.saveDutySettings(tableName, number, ptStatus)
                         if (isAppActive) {
-                            alarmCenter.scheduleAlarms(time, table, number, ptStatus)
+                            alarmCenter.scheduleAlarms(tableName, number, ptStatus)
                         }
                     }
                 },
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
                         preferenceManager.savePtStatus(status)
                         if (isAppActive) {
                             dutySettings?.let { settings ->
-                                alarmCenter.scheduleAlarms(settings.time, settings.table, settings.number, status)
+                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, status)
                             }
                         }
                     }
@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity() {
                         preferenceManager.saveAppActiveStatus(isActive)
                         if (isActive) {
                             dutySettings?.let { settings ->
-                                alarmCenter.scheduleAlarms(settings.time, settings.table, settings.number, settings.isPt)
+                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, settings.isPt)
                             }
                         } else {
                             alarmCenter.cancelAllAlarms()
@@ -106,13 +106,13 @@ class MainActivity : ComponentActivity() {
                         alarmCenter.cancelAllAlarms()
                     }
                 },
-                onSaveCustomDutyTables = { map ->
+                onSaveCustomDutyTables = { tables ->
                     lifecycleScope.launch {
-                        preferenceManager.saveCustomDutyTables(map)
+                        preferenceManager.saveCustomDutyTables(tables)
                         // 알람 재설정
                         dutySettings?.let { settings ->
                             if (isAppActive) {
-                                alarmCenter.scheduleAlarms(settings.time, settings.table, settings.number, settings.isPt)
+                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, settings.isPt)
                             }
                         }
                     }

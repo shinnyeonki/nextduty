@@ -13,8 +13,12 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -69,6 +73,15 @@ fun PatrolDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("patrol_prefs", Context.MODE_PRIVATE) }
     
+    var patrolPoints by remember {
+        mutableStateOf(
+            prefs.getString("custom_patrol_points", null)
+                ?.split("||")
+                ?.filter { it.isNotEmpty() }
+                ?: PATROL_POINTS
+        )
+    }
+
     var checkedIndices by remember { 
         mutableStateOf(
             prefs.getString("checked_list", "")
@@ -79,12 +92,70 @@ fun PatrolDialog(onDismiss: () -> Unit) {
         )
     }
 
+    var isEditMode by remember { mutableStateOf(false) }
     var pendingCheckIndex by remember { mutableStateOf<Int?>(null) }
     var pendingUncheckIndex by remember { mutableStateOf<Int?>(null) }
     var showResetConfirm by remember { mutableStateOf(false) }
+    
+    var editingPointIndex by remember { mutableStateOf<Int?>(null) }
+    var pointNameInput by remember { mutableStateOf("") }
+    var showAddDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(checkedIndices) {
         prefs.edit().putString("checked_list", checkedIndices.joinToString(",")).apply()
+    }
+
+    LaunchedEffect(patrolPoints) {
+        prefs.edit().putString("custom_patrol_points", patrolPoints.joinToString("||")).apply()
+    }
+
+    if (showAddDialog || editingPointIndex != null) {
+        AlertDialog(
+            onDismissRequest = { 
+                showAddDialog = false
+                editingPointIndex = null
+                pointNameInput = ""
+            },
+            title = { Text(if (editingPointIndex != null) "포인트 수정" else "새 포인트 추가", fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = pointNameInput,
+                    onValueChange = { pointNameInput = it },
+                    label = { Text("지점 명칭") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (pointNameInput.isNotBlank()) {
+                            if (editingPointIndex != null) {
+                                val newList = patrolPoints.toMutableList()
+                                newList[editingPointIndex!!] = pointNameInput
+                                patrolPoints = newList
+                            } else {
+                                patrolPoints = patrolPoints + pointNameInput
+                            }
+                        }
+                        showAddDialog = false
+                        editingPointIndex = null
+                        pointNameInput = ""
+                    }
+                ) {
+                    Text("확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showAddDialog = false
+                    editingPointIndex = null
+                    pointNameInput = ""
+                }) {
+                    Text("취소")
+                }
+            }
+        )
     }
 
     if (pendingCheckIndex != null) {
@@ -101,7 +172,7 @@ fun PatrolDialog(onDismiss: () -> Unit) {
             },
             text = { 
                 Text(
-                    "${pendingCheckIndex!!}. ${PATROL_POINTS[pendingCheckIndex!!]}\n이 지점을 확인했나요?", 
+                    "${pendingCheckIndex!!}. ${patrolPoints.getOrNull(pendingCheckIndex!!) ?: ""}\n이 지점을 확인했나요?", 
                     style = MaterialTheme.typography.bodyLarge,
                     lineHeight = 24.sp
                 ) 
@@ -130,7 +201,7 @@ fun PatrolDialog(onDismiss: () -> Unit) {
             onDismissRequest = { pendingUncheckIndex = null },
             shape = RoundedCornerShape(28.dp),
             title = { Text("순찰 취소", fontWeight = FontWeight.Black) },
-            text = { Text("${pendingUncheckIndex!!}. ${PATROL_POINTS[pendingUncheckIndex!!]}\n순찰 확인을 취소하시겠습니까?") },
+            text = { Text("${pendingUncheckIndex!!}. ${patrolPoints.getOrNull(pendingUncheckIndex!!) ?: ""}\n순찰 확인을 취소하시겠습니까?") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -211,18 +282,35 @@ fun PatrolDialog(onDismiss: () -> Unit) {
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                             )
 
-                            IconButton(
-                                onClick = { showResetConfirm = true },
-                                modifier = Modifier.background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f), CircleShape)
-                            ) {
-                                Icon(Icons.Default.Refresh, "Reset", tint = MaterialTheme.colorScheme.error)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                IconButton(
+                                    onClick = { isEditMode = !isEditMode },
+                                    modifier = Modifier.background(
+                                        if (isEditMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), 
+                                        CircleShape
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = if (isEditMode) Icons.Default.Done else Icons.Default.Edit,
+                                        contentDescription = "Edit",
+                                        tint = if (isEditMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                
+                                IconButton(
+                                    onClick = { showResetConfirm = true },
+                                    modifier = Modifier.background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f), CircleShape)
+                                ) {
+                                    Icon(Icons.Default.Refresh, "Reset", tint = MaterialTheme.colorScheme.error)
+                                }
                             }
                         }
                         
                         Spacer(Modifier.height(24.dp))
                         
                         // Progress Section
-                        val progress = if (PATROL_POINTS.isEmpty()) 0f else checkedIndices.size.toFloat() / PATROL_POINTS.size
+                        val progress = if (patrolPoints.isEmpty()) 0f else checkedIndices.size.toFloat() / patrolPoints.size
                         val animatedProgress by animateFloatAsState(
                             targetValue = progress, 
                             animationSpec = spring(stiffness = Spring.StiffnessLow),
@@ -236,31 +324,41 @@ fun PatrolDialog(onDismiss: () -> Unit) {
                                 verticalAlignment = Alignment.Bottom
                             ) {
                                 Text(
-                                    text = "오늘의 순찰 진행",
+                                    text = if (isEditMode) "순찰 지점 편집" else "오늘의 순찰 진행",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Black
                                 )
+                                if (!isEditMode) {
+                                    Text(
+                                        text = "${(progress * 100).toInt()}%",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            if (!isEditMode) {
+                                LinearProgressIndicator(
+                                    progress = { animatedProgress },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(12.dp)
+                                        .clip(CircleShape),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                                )
                                 Text(
-                                    text = "${(progress * 100).toInt()}%",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Black,
-                                    color = MaterialTheme.colorScheme.primary
+                                    text = "${checkedIndices.size}개 지점 완료 / 총 ${patrolPoints.size}개",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.Gray
+                                )
+                            } else {
+                                Text(
+                                    text = "지점을 추가하거나 수정, 삭제할 수 있습니다.",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.Gray
                                 )
                             }
-                            LinearProgressIndicator(
-                                progress = { animatedProgress },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(12.dp)
-                                    .clip(CircleShape),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                            )
-                            Text(
-                                text = "${checkedIndices.size}개 지점 완료 / 총 ${PATROL_POINTS.size}개",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.Gray
-                            )
                         }
                     }
                 }
@@ -274,21 +372,52 @@ fun PatrolDialog(onDismiss: () -> Unit) {
                 contentPadding = PaddingValues(20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                itemsIndexed(PATROL_POINTS) { index, point ->
+                itemsIndexed(patrolPoints) { index, point ->
                     val isChecked = checkedIndices.contains(index)
                     PatrolItem(
                         index = index,
                         text = point,
                         isChecked = isChecked,
+                        isEditMode = isEditMode,
                         onClick = {
-                            if (!isChecked) {
-                                pendingCheckIndex = index
+                            if (isEditMode) {
+                                editingPointIndex = index
+                                pointNameInput = point
                             } else {
-                                pendingUncheckIndex = index
+                                if (!isChecked) {
+                                    pendingCheckIndex = index
+                                } else {
+                                    pendingUncheckIndex = index
+                                }
                             }
+                        },
+                        onDelete = {
+                            val newList = patrolPoints.toMutableList()
+                            newList.removeAt(index)
+                            patrolPoints = newList
+                            // Re-calculate checked indices to maintain consistency
+                            checkedIndices = checkedIndices.filter { it != index }
+                                .map { if (it > index) it - 1 else it }
+                                .toSet()
                         }
                     )
                 }
+                
+                if (isEditMode) {
+                    item {
+                        Button(
+                            onClick = { showAddDialog = true },
+                            modifier = Modifier.fillMaxWidth().height(60.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), contentColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Add, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("순찰 지점 추가", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                
                 item {
                     Spacer(modifier = Modifier.height(100.dp))
                 }
@@ -302,11 +431,13 @@ private fun PatrolItem(
     index: Int,
     text: String,
     isChecked: Boolean,
-    onClick: () -> Unit
+    isEditMode: Boolean = false,
+    onClick: () -> Unit,
+    onDelete: () -> Unit = {}
 ) {
-    val scale by animateFloatAsState(if (isChecked) 1f else 1f, label = "scale")
+    val scale by animateFloatAsState(1f, label = "scale")
     val backgroundColor by animateColorAsState(
-        if (isChecked) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) 
+        if (isChecked && !isEditMode) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) 
         else Color.White,
         label = "bgColor"
     )
@@ -318,19 +449,19 @@ private fun PatrolItem(
             .scale(scale),
         shape = RoundedCornerShape(24.dp),
         color = backgroundColor,
-        border = if (isChecked) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) else null,
-        shadowElevation = if (isChecked) 0.dp else 6.dp
+        border = if (isChecked && !isEditMode) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) else null,
+        shadowElevation = if (isChecked && !isEditMode) 0.dp else 6.dp
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 24.dp, vertical = 28.dp)
+                .padding(horizontal = 24.dp, vertical = if (isEditMode) 20.dp else 28.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Index Circle
             Surface(
                 shape = CircleShape,
-                color = if (isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                color = if (isChecked && !isEditMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.size(32.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -338,7 +469,7 @@ private fun PatrolItem(
                         text = index.toString(),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Black,
-                        color = if (isChecked) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isChecked && !isEditMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -349,11 +480,11 @@ private fun PatrolItem(
                 Text(
                     text = text,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = if (isChecked) FontWeight.ExtraBold else FontWeight.Bold,
-                    color = if (isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    fontWeight = if (isChecked && !isEditMode) FontWeight.ExtraBold else FontWeight.Bold,
+                    color = if (isChecked && !isEditMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     lineHeight = 24.sp
                 )
-                if (isChecked) {
+                if (isChecked && !isEditMode) {
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = "COMPLETED",
@@ -367,19 +498,27 @@ private fun PatrolItem(
             
             Spacer(Modifier.width(16.dp))
             
-            Crossfade(targetState = isChecked, label = "icon") { checked ->
-                if (checked) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Checked",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(36.dp)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                    )
+            if (isEditMode) {
+                Row {
+                    IconButton(onClick = onClick) {
+                        Icon(Icons.Default.Edit, "Edit", tint = Color.Gray.copy(alpha = 0.6f))
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
+                    }
+                }
+            } else {
+                Crossfade(targetState = isChecked, label = "icon") { checked ->
+                    if (checked) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Checked",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    } else {
+                        Box(modifier = Modifier.size(36.dp))
+                    }
                 }
             }
         }

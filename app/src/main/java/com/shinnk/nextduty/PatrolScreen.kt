@@ -33,35 +33,35 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 val PATROL_POINTS = listOf(
-    "0 본인 사물함",
-    "1 1층 사무존 남자 화장실",
-    "2 2층 진로설계관內 여자 화장실",
-    "3 숙련관 동측 1층 비상계단 앞",
-    "4 숙련관 1층 남자 화장실",
-    "5 숙련관 서측 3층 비상계단 앞",
-    "6 숙련관 3층 남자 화장실",
-    "7 숙련관 동측 3층 비상계단 앞",
-    "8 숙련관 2층 남자 화장실",
-    "9 숙련관 동측 2층 비상계단 앞",
-    "10 숙련관 2층 복도 끝 남자 화장실",
-    "11 숙련관 1층 직원 출입문 입구(안쪽)",
-    "12 2층 식당 좌 옆 여자 화장실",
-    "13 2층 안내데스크 좌측 여자 화장실",
-    "14 2층 유아놀이방 內 좌측 여자 화장실",
-    "15 지하1층 나래울극장안쪽 분장대기실(좌/문틀)",
-    "16 옥외1층 기사 대기실 옆 출입구",
-    "17 옥외1층 정산소 주 출입구",
-    "18 옥외2층 주차장 EV앞",
-    "19 옥외1층 실내 주차장 입구(D6)",
-    "20 5층 공조실-1 앞 소화전 좌/옆",
-    "21 4층 여자 화장실",
-    "22 3층 청체험관 內 여자 화장실",
-    "23 3층 청체험관입구 좌/옆 여자 화장실",
-    "24 3층 조이샵 좌/옆 여자 화장실",
-    "25 3층 어체험관 內 여자 화장실",
-    "26 1층 나래울극장 옆 여자 화장실",
-    "27 1층 한울강당 옆 여자 화장실",
-    "28 1층 창의실 옆 여자 화장실"
+    "본인 사물함",
+    "1층 사무존 남자 화장실",
+    "2층 진로설계관內 여자 화장실",
+    "숙련관 동측 1층 비상계단 앞",
+    "숙련관 1층 남자 화장실",
+    "숙련관 서측 3층 비상계단 앞",
+    "숙련관 3층 남자 화장실",
+    "숙련관 동측 3층 비상계단 앞",
+    "숙련관 2층 남자 화장실",
+    "숙련관 동측 2층 비상계단 앞",
+    "숙련관 2층 복도 끝 남자 화장실",
+    "숙련관 1층 직원 출입문 입구(안쪽)",
+    "2층 식당 좌 옆 여자 화장실",
+    "2층 안내데스크 좌측 여자 화장실",
+    "2층 유아놀이방 內 좌측 여자 화장실",
+    "지하1층 나래울극장안쪽 분장대기실(좌/문틀)",
+    "옥외1층 기사 대기실 옆 출입구",
+    "옥외1층 정산소 주 출입구",
+    "옥외2층 주차장 EV앞",
+    "옥외1층 실내 주차장 입구(D6)",
+    "5층 공조실-1 앞 소화전 좌/옆",
+    "4층 여자 화장실",
+    "3층 청체험관 內 여자 화장실",
+    "3층 청체험관입구 좌/옆 여자 화장실",
+    "3층 조이샵 좌/옆 여자 화장실",
+    "3층 어체험관 內 여자 화장실",
+    "1층 나래울극장 옆 여자 화장실",
+    "1층 한울강당 옆 여자 화장실",
+    "1층 창의실 옆 여자 화장실"
 )
 
 @Composable
@@ -101,7 +101,7 @@ fun PatrolDialog(onDismiss: () -> Unit) {
             },
             text = { 
                 Text(
-                    "\"${PATROL_POINTS[pendingCheckIndex!!]}\"\n이 지점을 확인했나요?", 
+                    "${pendingCheckIndex!!}. ${PATROL_POINTS[pendingCheckIndex!!]}\n이 지점을 확인했나요?", 
                     style = MaterialTheme.typography.bodyLarge,
                     lineHeight = 24.sp
                 ) 
@@ -130,7 +130,7 @@ fun PatrolDialog(onDismiss: () -> Unit) {
             onDismissRequest = { pendingUncheckIndex = null },
             shape = RoundedCornerShape(28.dp),
             title = { Text("순찰 취소", fontWeight = FontWeight.Black) },
-            text = { Text("\"${PATROL_POINTS[pendingUncheckIndex!!]}\"\n순찰 확인을 취소하시겠습니까?") },
+            text = { Text("${pendingUncheckIndex!!}. ${PATROL_POINTS[pendingUncheckIndex!!]}\n순찰 확인을 취소하시겠습니까?") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -277,6 +277,7 @@ fun PatrolDialog(onDismiss: () -> Unit) {
                 itemsIndexed(PATROL_POINTS) { index, point ->
                     val isChecked = checkedIndices.contains(index)
                     PatrolItem(
+                        index = index,
                         text = point,
                         isChecked = isChecked,
                         onClick = {
@@ -298,6 +299,7 @@ fun PatrolDialog(onDismiss: () -> Unit) {
 
 @Composable
 private fun PatrolItem(
+    index: Int,
     text: String,
     isChecked: Boolean,
     onClick: () -> Unit
@@ -323,9 +325,26 @@ private fun PatrolItem(
             modifier = Modifier
                 .padding(horizontal = 24.dp, vertical = 28.dp)
                 .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Index Circle
+            Surface(
+                shape = CircleShape,
+                color = if (isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.size(32.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = index.toString(),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Black,
+                        color = if (isChecked) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(20.dp))
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = text,
@@ -360,7 +379,6 @@ private fun PatrolItem(
                     Box(
                         modifier = Modifier
                             .size(36.dp)
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), CircleShape)
                     )
                 }
             }

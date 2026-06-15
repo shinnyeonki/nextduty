@@ -3,11 +3,13 @@ package com.shinnk.nextduty
 import java.time.Duration
 import java.time.LocalTime
 import java.util.Locale
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class TimeSlot(
     val startTime: String,
     val endTime: String,
-    val locations: List<String>
+    val locations: List<String>,
 )
 
 data class DutyInfo(
@@ -129,11 +131,21 @@ object DutyCore {
         "JU2_3" to ju2_table3
     )
 
+    private var customMap: Map<String, List<TimeSlot>>? = null
+
+    fun setCustomMap(map: Map<String, List<TimeSlot>>?) {
+        customMap = map
+    }
+
+    private fun getDutyTable(key: String): List<TimeSlot> {
+        return customMap?.get(key) ?: totalMap[key] ?: totalMap["JU1_1"]!!
+    }
+
     /**
      * 비즈니스 로직(근무 규칙)에 따른 출근/퇴근 시간 반환
      */
     fun getShiftTimes(time: String, isPt: Boolean): Pair<LocalTime, LocalTime> {
-        val start = if (isPt && time == "JU2") LocalTime.of(11, 30) 
+        val start = if (isPt && (time == "JU2")) LocalTime.of(11, 30) 
                     else if (time == "JU1") LocalTime.of(8, 0) 
                     else LocalTime.of(11, 0)
         
@@ -149,8 +161,7 @@ object DutyCore {
      */
     private fun getProcessedSlots(time: String, table: Int, number: Int, isPt: Boolean): List<ProcessedSlot> {
         val tableKey = "${time}_$table"
-        // [가드] 존재하지 않는 테이블 요청 시 기본값(JU1_1) 반환
-        val timeSlots = totalMap[tableKey] ?: totalMap["JU1_1"]!!
+        val timeSlots = getDutyTable(tableKey)
         val (shiftStart, shiftEnd) = getShiftTimes(time, isPt)
 
         return timeSlots.mapNotNull { slot ->
@@ -203,11 +214,13 @@ object DutyCore {
 
         // 1. 모든 근무 시작 5분 전 알람 등록 (중간 공백 시간이 있어도 각각 시작 5분 전에 정확히 울림)
         slots.forEach { slot ->
-            alarms.add(DutyAlarm(
-                triggerTime = slot.startTime.minusMinutes(5),
-                displayStartTime = slot.displayStartTime,
-                location = slot.location
-            ))
+            alarms.add(
+                DutyAlarm(
+                    triggerTime = slot.startTime.minusMinutes(5),
+                    displayStartTime = slot.displayStartTime,
+                    location = slot.location
+                )
+            )
         }
 
         // 2. 마지막 근무 종료 5분 전 알람 등록 (퇴근 알림)
@@ -219,7 +232,7 @@ object DutyCore {
         ))
 
         // 중복 시간 제거 및 정렬
-        return alarms.distinctBy { it.triggerTime }.sortedBy { it.triggerTime }
+        return alarms.asSequence().distinctBy { it.triggerTime }.sortedBy { it.triggerTime }.toList()
     }
 
     fun calculateDutyInfo(currentTime: LocalTime, settings: DutySettings): DutyInfo {

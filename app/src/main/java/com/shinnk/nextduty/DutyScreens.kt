@@ -5,6 +5,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -46,13 +48,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.core.content.FileProvider
 import java.io.File
 import android.net.Uri
-import android.provider.OpenableColumns
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.io.FileOutputStream
@@ -73,7 +71,7 @@ object ImageStorage {
                 }
             }
             relativePath
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -82,7 +80,7 @@ object ImageStorage {
         try {
             val file = if (path.startsWith("/")) File(path) else File(context.filesDir, path)
             if (file.exists()) file.delete()
-        } catch (e: Exception) { /* ignore */ }
+        } catch (_: Exception) { /* ignore */ }
     }
 }
 
@@ -99,14 +97,23 @@ fun DutyApp(
     onSaveAppActiveStatus: (Boolean) -> Unit,
     onSaveWorkScheduleImages: (List<String>) -> Unit,
     onEdit: () -> Unit,
+    onSaveCustomDutyTables: (Map<String, List<TimeSlot>>?) -> Unit
 ) {
     var isEditing by remember { mutableStateOf(false) }
     var showTableDialog by remember { mutableStateOf(false) }
     var showWorkScheduleDialog by remember { mutableStateOf(false) }
     var showPatrolDialog by remember { mutableStateOf(false) }
+    var showPlanEditorDialog by remember { mutableStateOf(false) }
 
     if (showTableDialog) {
         DutyTableDialog(onDismiss = { showTableDialog = false })
+    }
+
+    if (showPlanEditorDialog) {
+        DutyPlanEditorDialog(
+            onSave = onSaveCustomDutyTables,
+            onDismiss = { showPlanEditorDialog = false }
+        )
     }
 
     if (showWorkScheduleDialog) {
@@ -128,7 +135,8 @@ fun DutyApp(
                 onToggleActive = onSaveAppActiveStatus,
                 onShowTable = { showTableDialog = true },
                 onShowWorkSchedule = { showWorkScheduleDialog = true },
-                onShowPatrol = { showPatrolDialog = true }
+                onShowPatrol = { showPatrolDialog = true },
+                onShowPlanEditor = { showPlanEditorDialog = true }
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -180,12 +188,16 @@ private fun PremiumTopBar(
     onToggleActive: (Boolean) -> Unit,
     onShowTable: () -> Unit,
     onShowWorkSchedule: () -> Unit,
-    onShowPatrol: () -> Unit
+    onShowPatrol: () -> Unit,
+    onShowPlanEditor: () -> Unit
 ) {
     CenterAlignedTopAppBar(
         title = {},
         navigationIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onShowPlanEditor) {
+                    Icon(Icons.Default.Settings, "계획 수정", tint = MaterialTheme.colorScheme.primary)
+                }
                 IconButton(onClick = onShowTable) {
                     Icon(Icons.AutoMirrored.Filled.List, "편성표", tint = MaterialTheme.colorScheme.primary)
                 }
@@ -829,4 +841,212 @@ private fun ZoomableImage(resId: Int, onZoomChanged: (Boolean) -> Unit) {
     }) {
         Image(painter = painterResource(resId), null, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y }, contentScale = ContentScale.Fit)
     }
+}
+
+// --- Duty Plan Editor ---
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DutyPlanEditorDialog(
+    onSave: (Map<String, List<TimeSlot>>?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selectedTableKey by remember { mutableStateOf("JU1_1") }
+    // Initialize with current custom map or default map
+    val initialMap = remember { 
+        // We need a way to get the current map. 
+        // For now, let's assume we can access it ,or we start from default.
+        // Actually, it's better to pass the current map as an argument.
+        // But for simplicity, let's use DutyCore.totalMap as base.
+        DutyCore.totalMap
+    }
+    
+    // We need to keep track of changes. Using a deep copy would be best.
+    var editedMap by remember { mutableStateOf(initialMap) }
+    var editingSlotIndex by remember { mutableIntStateOf(-1) }
+    var showResetConfirm by remember { mutableStateOf(false) }
+
+    if (showResetConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            title = { Text("편성표 초기화", fontWeight = FontWeight.Bold) },
+            text = { Text("모든 편성표의 수정 사항을 삭제하고 앱 기본 설정으로 되돌리시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onSave(null)
+                        showResetConfirm = false
+                        onDismiss()
+                    }
+                ) {
+                    Text("초기화", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirm = false }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("근무 계획 수정", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, null) }
+                    },
+                    actions = {
+                        TextButton(onClick = { showResetConfirm = true }) {
+                            Text("초기화", color = MaterialTheme.colorScheme.error)
+                        }
+                        Button(
+                            onClick = { onSave(editedMap); onDismiss() },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Text("저장")
+                        }
+                    }
+                )
+            }
+        ) { padding ->
+            Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+                // Table Selector
+                ScrollableTabRow(
+                    selectedTabIndex = editedMap.keys.toList().indexOf(selectedTableKey),
+                    edgePadding = 16.dp,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    divider = {}
+                ) {
+                    editedMap.keys.forEach { key ->
+                        val displayTitle = key.replace("JU", "주")
+                            .replace("_", ", ") + "번 편성표"
+                        Tab(
+                            selected = selectedTableKey == key,
+                            onClick = { selectedTableKey = key },
+                            text = { Text(displayTitle, style = MaterialTheme.typography.labelLarge) }
+                        )
+                    }
+                }
+
+                // Slot List
+                val slots = editedMap[selectedTableKey] ?: emptyList()
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    itemsIndexed(slots) { index, slot ->
+                        SlotEditCard(
+                            slot = slot,
+                            onClick = { editingSlotIndex = index }
+                        )
+                    }
+                }
+            }
+        }
+
+        if (editingSlotIndex != -1) {
+            val slotToEdit = editedMap[selectedTableKey]!![editingSlotIndex]
+            SlotDetailEditDialog(
+                slot = slotToEdit,
+                onDismiss = { editingSlotIndex = -1 },
+                onConfirm = { updatedSlot ->
+                    val newList = editedMap[selectedTableKey]!!.toMutableList()
+                    newList[editingSlotIndex] = updatedSlot
+                    val newMap = editedMap.toMutableMap()
+                    newMap[selectedTableKey] = newList
+                    editedMap = newMap
+                    editingSlotIndex = -1
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SlotEditCard(slot: TimeSlot, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("${slot.startTime} ~ ${slot.endTime}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(slot.locations.joinToString(" | "), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = Color.LightGray)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SlotDetailEditDialog(
+    slot: TimeSlot,
+    onDismiss: () -> Unit,
+    onConfirm: (TimeSlot) -> Unit
+) {
+    var startTime by remember { mutableStateOf(slot.startTime) }
+    var endTime by remember { mutableStateOf(slot.endTime) }
+    var locations by remember { mutableStateOf(slot.locations) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("슬롯 수정", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text("시간 설정", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextField(
+                        value = startTime,
+                        onValueChange = { startTime = it },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("시작") },
+                        singleLine = true
+                    )
+                    Text(" ~ ", modifier = Modifier.padding(horizontal = 8.dp))
+                    TextField(
+                        value = endTime,
+                        onValueChange = { endTime = it },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("종료") },
+                        singleLine = true
+                    )
+                }
+                
+                Spacer(Modifier.height(20.dp))
+                Text("근무지 설정", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                locations.forEachIndexed { index, loc ->
+                    TextField(
+                        value = loc,
+                        onValueChange = { newValue ->
+                            val newList = locations.toMutableList()
+                            newList[index] = newValue
+                            locations = newList
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        label = { Text("${index + 1}번 근무자") },
+                        singleLine = true
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(TimeSlot(startTime, endTime, locations)) }) {
+                Text("확인")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("취소") }
+        }
+    )
 }

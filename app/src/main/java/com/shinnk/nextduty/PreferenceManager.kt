@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.File
 import java.time.LocalDate
 
@@ -21,6 +23,16 @@ class PreferenceManager(private val context: Context) {
         val LAST_SAVED_DATE = stringPreferencesKey("last_saved_date")
         val IS_APP_ACTIVE = booleanPreferencesKey("is_app_active")
         val WORK_SCHEDULE_IMAGES = stringPreferencesKey("work_schedule_images_list")
+        val CUSTOM_DUTY_TABLES = stringPreferencesKey("custom_duty_tables")
+    }
+
+    val customDutyTables: Flow<Map<String, List<TimeSlot>>?> = context.dataStore.data.map { preferences ->
+        val serialized = preferences[CUSTOM_DUTY_TABLES] ?: return@map null
+        try {
+            Json.decodeFromString<Map<String, List<TimeSlot>>>(serialized)
+        } catch (e: Exception) {
+            null
+        }
     }
 
     val workScheduleImages: Flow<List<String>> = context.dataStore.data.map { preferences ->
@@ -91,6 +103,16 @@ class PreferenceManager(private val context: Context) {
             preferences.remove(DUTY_TABLE)
             preferences.remove(DUTY_NUMBER)
             preferences.remove(LAST_SAVED_DATE)
+        }
+    }
+
+    suspend fun saveCustomDutyTables(map: Map<String, List<TimeSlot>>?) {
+        context.dataStore.edit { preferences ->
+            if (map == null) {
+                preferences.remove(CUSTOM_DUTY_TABLES)
+            } else {
+                preferences[CUSTOM_DUTY_TABLES] = Json.encodeToString(map)
+            }
         }
     }
 }

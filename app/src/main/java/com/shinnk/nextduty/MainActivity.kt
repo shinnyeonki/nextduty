@@ -10,12 +10,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
@@ -39,17 +39,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         // 화면 깨우기 및 잠금 화면 위에 표시 설정
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        } else {
-            @Suppress("DEPRECATION")
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-            )
-        }
+        setShowWhenLocked(true)
+        setTurnScreenOn(true)
 
         // 앱이 켜지면 알람 소리 중지
         alarmCenter = AlarmCenter(this)
@@ -64,6 +55,11 @@ class MainActivity : ComponentActivity() {
             val ptStatus by preferenceManager.ptStatus.collectAsState(initial = false)
             val isAppActive by preferenceManager.isAppActive.collectAsState(initial = true)
             val workScheduleImages by preferenceManager.workScheduleImages.collectAsState(initial = emptyList())
+            val customDutyTables by preferenceManager.customDutyTables.collectAsState(initial = null)
+
+            LaunchedEffect(customDutyTables) {
+                DutyCore.setCustomMap(customDutyTables)
+            }
 
             DutyApp(
                 dutySettings = dutySettings,
@@ -110,6 +106,17 @@ class MainActivity : ComponentActivity() {
                         alarmCenter.cancelAllAlarms()
                     }
                 },
+                onSaveCustomDutyTables = { map ->
+                    lifecycleScope.launch {
+                        preferenceManager.saveCustomDutyTables(map)
+                        // 알람 재설정
+                        dutySettings?.let { settings ->
+                            if (isAppActive) {
+                                alarmCenter.scheduleAlarms(settings.time, settings.table, settings.number, settings.isPt)
+                            }
+                        }
+                    }
+                }
             )
         }
     }
@@ -130,7 +137,7 @@ class MainActivity : ComponentActivity() {
 
         // 3. 정확한 알람 권한 (Android 12+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
             if (!alarmManager.canScheduleExactAlarms()) {
                 Toast.makeText(this, "정확한 알람 권한이 필요합니다. 설정에서 허용해주세요.", Toast.LENGTH_LONG).show()
                 val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
@@ -178,7 +185,7 @@ class MainActivity : ComponentActivity() {
             }
             try {
                 startActivity(intent)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // 일부 기기에서 data URI를 지원하지 않을 경우 일반 리스트 호출
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
             }

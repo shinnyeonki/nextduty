@@ -1,5 +1,6 @@
 package com.shinnk.nextduty
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,8 +29,8 @@ import androidx.compose.ui.window.DialogProperties
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DutyPlanEditorDialog(onSave: (List<DutyTable>?) -> Unit, onDismiss: () -> Unit) {
-    val initialTables = remember { DutyCore.getAllTables() }
-    var editedTables by remember { mutableStateOf(initialTables) }
+    var baseTables by remember { mutableStateOf(DutyCore.getAllTables()) }
+    var editedTables by remember { mutableStateOf(baseTables) }
     var selectedTableName by remember { mutableStateOf(editedTables.firstOrNull()?.displayName ?: "") }
 
     // 데이터 변경 시 선택된 탭 안전하게 복구
@@ -56,13 +57,47 @@ fun DutyPlanEditorDialog(onSave: (List<DutyTable>?) -> Unit, onDismiss: () -> Un
     var showSaveConfirm by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showAddTableDialog by remember { mutableStateOf(false) }
+    var showExitConfirm by remember { mutableStateOf(false) }
+
+    val handleBack = {
+        if (editedTables != baseTables) {
+            showExitConfirm = true
+        } else {
+            onDismiss()
+        }
+    }
+
+    BackHandler(onBack = handleBack)
+
+    if (showExitConfirm) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirm = false },
+            title = { Text("변경 사항 폐기", fontWeight = FontWeight.Bold) },
+            text = { Text("저장하지 않은 변경 사항이 있습니다. 정말로 나가시겠습니까?") },
+            confirmButton = { 
+                TextButton(onClick = { 
+                    showExitConfirm = false
+                    onDismiss() 
+                }) { Text("나가기", color = MaterialTheme.colorScheme.error) } 
+            },
+            dismissButton = { TextButton(onClick = { showExitConfirm = false }) { Text("취소") } }
+        )
+    }
 
     if (showResetConfirm) {
         AlertDialog(
             onDismissRequest = { showResetConfirm = false }, 
             title = { Text("편성표 초기화", fontWeight = FontWeight.Bold) }, 
             text = { Text("모든 수정 사항을 삭제하고 기본 설정으로 되돌릴까요?") }, 
-            confirmButton = { TextButton(onClick = { onSave(null); onDismiss() }) { Text("초기화", color = MaterialTheme.colorScheme.error) } }, 
+            confirmButton = { 
+                TextButton(onClick = { 
+                    onSave(null)
+                    val defaults = DutyCore.getDefaultTables()
+                    baseTables = defaults
+                    editedTables = defaults
+                    showResetConfirm = false 
+                }) { Text("초기화", color = MaterialTheme.colorScheme.error) } 
+            }, 
             dismissButton = { TextButton(onClick = { showResetConfirm = false }) { Text("취소") } }
         )
     }
@@ -72,7 +107,13 @@ fun DutyPlanEditorDialog(onSave: (List<DutyTable>?) -> Unit, onDismiss: () -> Un
             onDismissRequest = { showSaveConfirm = false },
             title = { Text("변경 사항 저장", fontWeight = FontWeight.Bold) },
             text = { Text("수정된 편성표 데이터를 저장하시겠습니까?") },
-            confirmButton = { Button(onClick = { onSave(editedTables); onDismiss() }) { Text("저장") } },
+            confirmButton = { 
+                Button(onClick = { 
+                    onSave(editedTables)
+                    baseTables = editedTables
+                    showSaveConfirm = false 
+                }) { Text("저장") } 
+            },
             dismissButton = { TextButton(onClick = { showSaveConfirm = false }) { Text("취소") } }
         )
     }
@@ -145,7 +186,7 @@ fun DutyPlanEditorDialog(onSave: (List<DutyTable>?) -> Unit, onDismiss: () -> Un
                             }
                         }
                     }, 
-                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, null) } }, 
+                    navigationIcon = { IconButton(onClick = handleBack) { Icon(Icons.Default.Close, null) } },
                     actions = { 
                         var showMenu by remember { mutableStateOf(false) }
                         IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.Settings, "설정") }

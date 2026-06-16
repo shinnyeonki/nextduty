@@ -134,6 +134,8 @@ object DutyCore {
 
     fun getAllTables(): List<DutyTable> = tablesMap.values.toList()
 
+    fun getDefaultTables(): List<DutyTable> = defaultTables
+
     fun getTable(name: String): DutyTable? = tablesMap[name]
 
     fun getShiftTimes(tableName: String, isPt: Boolean): Pair<LocalTime, LocalTime> {

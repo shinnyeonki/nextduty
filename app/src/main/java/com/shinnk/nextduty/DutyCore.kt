@@ -93,16 +93,16 @@ object DutyCore {
             DutySlot("19:00", "20:00", listOf("1층로비", "근무없음", "2층로비").map { it.toLoc() })
         )),
         // 주2-3 (Capacity 3)
-        DutyTable("주2-3", 3, listOf(
-            DutySlot("11:00", "12:00", listOf("2층로비", "1층로비", "근무없음").map { it.toLoc() }),
-            DutySlot("12:00", "12:40", listOf("1층로비", "2층로비", "근무없음").map { it.toLoc() }),
-            DutySlot("12:40", "14:00", listOf("점심시간", "점심시간", "점심시간").map { it.toLoc() }),
-            DutySlot("14:00", "15:00", listOf("2층로비", "1층로비", "근무없음").map { it.toLoc() }),
-            DutySlot("15:00", "16:00", listOf("1층로비", "2층로비", "근무없음").map { it.toLoc() }),
-            DutySlot("16:00", "17:00", listOf("2층로비", "1층로비", "근무없음").map { it.toLoc() }),
-            DutySlot("17:00", "18:00", listOf("1층로비", "2층로비", "근무없음").map { it.toLoc() }),
-            DutySlot("18:00", "19:00", listOf("2층로비", "근무없음", "근무없음").map { it.toLoc() }),
-            DutySlot("19:00", "20:00", listOf("2층로비", "근무없음", "근무없음").map { it.toLoc() })
+        DutyTable("주2-3", 2, listOf(
+            DutySlot("11:00", "12:00", listOf("2층로비", "1층로비").map { it.toLoc() }),
+            DutySlot("12:00", "12:40", listOf("1층로비", "2층로비").map { it.toLoc() }),
+            DutySlot("12:40", "14:00", listOf("점심시간", "점심시간").map { it.toLoc() }),
+            DutySlot("14:00", "15:00", listOf("2층로비", "1층로비").map { it.toLoc() }),
+            DutySlot("15:00", "16:00", listOf("1층로비", "2층로비").map { it.toLoc() }),
+            DutySlot("16:00", "17:00", listOf("2층로비", "1층로비").map { it.toLoc() }),
+            DutySlot("17:00", "18:00", listOf("1층로비", "2층로비").map { it.toLoc() }),
+            DutySlot("18:00", "19:00", listOf("1층로비", "근무없음").map { it.toLoc() }),
+            DutySlot("19:00", "20:00", listOf("1층로비", "근무없음").map { it.toLoc() })
         ))
     )
 
@@ -186,17 +186,17 @@ object DutyCore {
         }
     }
 
-    fun getAlarmSchedules(tableName: String, number: Int, isPt: Boolean): List<DutyAlarm> {
+    fun getAlarmSchedules(tableName: String, number: Int, isPt: Boolean, leadTime: Int = 5): List<DutyAlarm> {
         val slots = getProcessedSlots(tableName, number, isPt)
         if (slots.isEmpty()) return emptyList()
 
         val alarms = mutableListOf<DutyAlarm>()
         slots.forEach { slot ->
-            alarms.add(DutyAlarm(slot.startTime.minusMinutes(5), slot.displayStartTime, slot.location))
+            alarms.add(DutyAlarm(slot.startTime.minusMinutes(leadTime.toLong()), slot.displayStartTime, slot.location))
         }
 
         val lastSlot = slots.last()
-        alarms.add(DutyAlarm(lastSlot.endTime.minusMinutes(5), lastSlot.endTime.toString(), "업무 종료"))
+        alarms.add(DutyAlarm(lastSlot.endTime.minusMinutes(leadTime.toLong()), lastSlot.endTime.toString(), "업무 종료"))
 
         return alarms.asSequence().distinctBy { it.triggerTime }.sortedBy { it.triggerTime }.toList()
     }

@@ -55,7 +55,9 @@ class MainActivity : ComponentActivity() {
             val ptStatus by preferenceManager.ptStatus.collectAsState(initial = false)
             val isAppActive by preferenceManager.isAppActive.collectAsState(initial = true)
             val workScheduleImages by preferenceManager.workScheduleImages.collectAsState(initial = emptyList())
+            val dutyTableImages by preferenceManager.dutyTableImages.collectAsState(initial = emptyList())
             val customDutyTables by preferenceManager.customDutyTables.collectAsState(initial = null)
+            val alarmLeadTime by preferenceManager.alarmLeadTime.collectAsState(initial = 5)
 
             LaunchedEffect(customDutyTables) {
                 DutyCore.setCustomTables(customDutyTables)
@@ -66,11 +68,13 @@ class MainActivity : ComponentActivity() {
                 ptStatus = ptStatus,
                 isAppActive = isAppActive,
                 workScheduleImages = workScheduleImages,
+                dutyTableImages = dutyTableImages,
+                alarmLeadTime = alarmLeadTime,
                 onSaveSettings = { tableName, number ->
                     lifecycleScope.launch {
                         preferenceManager.saveDutySettings(tableName, number, ptStatus)
                         if (isAppActive) {
-                            alarmCenter.scheduleAlarms(tableName, number, ptStatus)
+                            alarmCenter.scheduleAlarms(tableName, number, ptStatus, alarmLeadTime)
                         }
                     }
                 },
@@ -79,7 +83,7 @@ class MainActivity : ComponentActivity() {
                         preferenceManager.savePtStatus(status)
                         if (isAppActive) {
                             dutySettings?.let { settings ->
-                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, status)
+                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, status, alarmLeadTime)
                             }
                         }
                     }
@@ -89,7 +93,7 @@ class MainActivity : ComponentActivity() {
                         preferenceManager.saveAppActiveStatus(isActive)
                         if (isActive) {
                             dutySettings?.let { settings ->
-                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, settings.isPt)
+                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, settings.isPt, alarmLeadTime)
                             }
                         } else {
                             alarmCenter.cancelAllAlarms()
@@ -99,6 +103,11 @@ class MainActivity : ComponentActivity() {
                 onSaveWorkScheduleImages = { images ->
                     lifecycleScope.launch {
                         preferenceManager.saveWorkScheduleImages(images)
+                    }
+                },
+                onSaveDutyTableImages = { images ->
+                    lifecycleScope.launch {
+                        preferenceManager.saveDutyTableImages(images)
                     }
                 },
                 onEdit = {
@@ -112,7 +121,18 @@ class MainActivity : ComponentActivity() {
                         // 알람 재설정
                         dutySettings?.let { settings ->
                             if (isAppActive) {
-                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, settings.isPt)
+                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, settings.isPt, alarmLeadTime)
+                            }
+                        }
+                    }
+                },
+                onSaveAlarmLeadTime = { minutes ->
+                    lifecycleScope.launch {
+                        preferenceManager.saveAlarmLeadTime(minutes)
+                        // 알람 재설정
+                        dutySettings?.let { settings ->
+                            if (isAppActive) {
+                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, settings.isPt, minutes)
                             }
                         }
                     }

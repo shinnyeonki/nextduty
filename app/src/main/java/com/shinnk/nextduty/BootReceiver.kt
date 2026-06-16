@@ -21,6 +21,7 @@ class BootReceiver : BroadcastReceiver() {
                     val prefs = PreferenceManager(context)
                     val settings = prefs.dutySettings.first()
                     val isAppActive = prefs.isAppActive.first()
+                    val alarmLeadTime = prefs.alarmLeadTime.first()
                     
                     if (settings != null && isAppActive) {
                         val alarmCenter = AlarmCenter(context)
@@ -29,13 +30,14 @@ class BootReceiver : BroadcastReceiver() {
                         alarmCenter.scheduleAlarms(
                             tableName = settings.tableName,
                             number = settings.number,
-                            isPt = settings.isPt
+                            isPt = settings.isPt,
+                            leadTime = alarmLeadTime
                         )
 
                         // 방금(10분 이내) 지난 알람이 있다면 즉시 알림
                         val now = LocalTime.now()
                         val missedAlarms = DutyCore.getAlarmSchedules(
-                            settings.tableName, settings.number, settings.isPt
+                            settings.tableName, settings.number, settings.isPt, alarmLeadTime
                         ).filter { 
                             it.triggerTime.isBefore(now) && it.triggerTime.isAfter(now.minusMinutes(10))
                         }

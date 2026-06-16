@@ -27,21 +27,39 @@ fun DutyApp(
     ptStatus: Boolean,
     isAppActive: Boolean,
     workScheduleImages: List<String>,
+    dutyTableImages: List<String>,
+    alarmLeadTime: Int,
     onSaveSettings: (String, Int) -> Unit,
     onSavePtStatus: (Boolean) -> Unit,
     onSaveAppActiveStatus: (Boolean) -> Unit,
     onSaveWorkScheduleImages: (List<String>) -> Unit,
+    onSaveDutyTableImages: (List<String>) -> Unit,
     onEdit: () -> Unit,
-    onSaveCustomDutyTables: (List<DutyTable>?) -> Unit
+    onSaveCustomDutyTables: (List<DutyTable>?) -> Unit,
+    onSaveAlarmLeadTime: (Int) -> Unit
 ) {
     var selectedBottomTab by remember { mutableIntStateOf(0) } // 0: 홈, 1: 근무표, 2: 편성표
     var isEditing by remember { mutableStateOf(false) }
     
     var showPatrolDialog by remember { mutableStateOf(false) }
     var showPlanEditorDialog by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
+    var showAppSettingsDialog by remember { mutableStateOf(false) }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    if (showInfoDialog) {
+        InfoDialog(onDismiss = { showInfoDialog = false })
+    }
+
+    if (showAppSettingsDialog) {
+        AppSettingsDialog(
+            leadTime = alarmLeadTime,
+            onLeadTimeChange = onSaveAlarmLeadTime,
+            onDismiss = { showAppSettingsDialog = false }
+        )
+    }
 
     if (showPlanEditorDialog) {
         DutyPlanEditorDialog(
@@ -65,15 +83,16 @@ fun DutyApp(
                 Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
                     Text("더보기", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(40.dp))
-                    
+
                     NavigationDrawerItem(
-                        label = { Text("편성표 수정", fontWeight = FontWeight.Bold) },
+                        label = { Text("근무 설정", fontWeight = FontWeight.Bold) },
                         selected = false,
-                        onClick = { scope.launch { drawerState.close(); showPlanEditorDialog = true } },
-                        icon = { Icon(Icons.Default.EditCalendar, null) },
+                        onClick = { scope.launch { drawerState.close(); selectedBottomTab = 0; isEditing = true } },
+                        icon = { Icon(Icons.Default.EditNote, null) },
                         shape = RoundedCornerShape(16.dp)
                     )
                     Spacer(Modifier.height(8.dp))
+
                     NavigationDrawerItem(
                         label = { Text("순찰", fontWeight = FontWeight.Bold) },
                         selected = false,
@@ -82,14 +101,33 @@ fun DutyApp(
                         shape = RoundedCornerShape(16.dp)
                     )
                     Spacer(Modifier.height(8.dp))
+
                     NavigationDrawerItem(
-                        label = { Text("앱 설정", fontWeight = FontWeight.Bold) },
+                        label = { Text("알림 설정", fontWeight = FontWeight.Bold) },
                         selected = false,
-                        onClick = { scope.launch { drawerState.close(); selectedBottomTab = 0; isEditing = true } },
-                        icon = { Icon(Icons.Default.Settings, null) },
+                        onClick = { scope.launch { drawerState.close(); showAppSettingsDialog = true } },
+                        icon = { Icon(Icons.Default.NotificationsActive, null) },
                         shape = RoundedCornerShape(16.dp)
                     )
-                    
+                    Spacer(Modifier.height(8.dp))
+
+                    NavigationDrawerItem(
+                        label = { Text("편성표 데이터 수정", fontWeight = FontWeight.Bold) },
+                        selected = false,
+                        onClick = { scope.launch { drawerState.close(); showPlanEditorDialog = true } },
+                        icon = { Icon(Icons.Default.EditCalendar, null) },
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+
+                    NavigationDrawerItem(
+                        label = { Text("정보", fontWeight = FontWeight.Bold) },
+                        selected = false,
+                        onClick = { scope.launch { drawerState.close(); showInfoDialog = true } },
+                        icon = { Icon(Icons.Default.Info, null) },
+                        shape = RoundedCornerShape(16.dp)
+                    )
+
                     Spacer(Modifier.weight(1f))
                     
                     Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
@@ -173,7 +211,10 @@ fun DutyApp(
                             )
                         }
                         2 -> {
-                            DutyTableContent()
+                            DutyTableContent(
+                                images = dutyTableImages,
+                                onSaveImages = onSaveDutyTableImages
+                            )
                         }
                     }
                 }

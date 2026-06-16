@@ -26,14 +26,14 @@ class AlarmCenter(private val context: Context) {
         const val ALARM_REQUEST_CODE_RANGE = 50 
     }
 
-    fun scheduleAlarms(tableName: String, number: Int, isPt: Boolean) {
+    fun scheduleAlarms(tableName: String, number: Int, isPt: Boolean, leadTime: Int = 5) {
         cancelAllAlarms()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (!alarmManager.canScheduleExactAlarms()) return
         }
 
-        val alarms = DutyCore.getAlarmSchedules(tableName, number, isPt)
+        val alarms = DutyCore.getAlarmSchedules(tableName, number, isPt, leadTime)
         val now = LocalTime.now()
         val today = LocalDate.now()
 

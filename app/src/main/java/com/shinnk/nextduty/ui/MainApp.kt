@@ -43,7 +43,15 @@ fun MainApp(
     onSaveAlarmLeadTime: (Int) -> Unit
 ) {
     var selectedBottomTab by remember { mutableIntStateOf(0) }
-    var isEditing by remember { mutableStateOf(dutySettings == null) }
+    var isEditing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(dutySettings) {
+        if (dutySettings == null) {
+            isEditing = true
+        } else {
+            isEditing = false
+        }
+    }
     
     var showPatrolDialog by remember { mutableStateOf(false) }
     var showPlanEditorDialog by remember { mutableStateOf(false) }

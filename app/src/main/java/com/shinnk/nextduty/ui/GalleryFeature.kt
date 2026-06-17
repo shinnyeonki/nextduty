@@ -3,7 +3,6 @@ package com.shinnk.nextduty.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -28,7 +27,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.io.File
@@ -161,21 +159,20 @@ fun ZoomableAsyncImage(model: String, onZoomChanged: (Boolean) -> Unit) {
     var isLoading by remember { mutableStateOf(true) }
     var isError by remember { mutableStateOf(false) }
 
-    // State to keep track of resource loading
-    val isResource = model.startsWith("res:")
-    val resId = remember(model, context) {
-        if (isResource) {
+    val imageModel = remember(model) {
+        if (model.startsWith("res:")) {
             val resName = model.substringAfter("res:")
-            // Directly reference R.drawable constants to prevent the resource shrinker 
-            // from removing these resources in release builds.
+            // Keep hard references to prevent resource shrinking in release builds
             when (resName) {
                 "duty_ju1_12" -> com.shinnk.nextduty.R.drawable.duty_ju1_12
                 "duty_ju1_34" -> com.shinnk.nextduty.R.drawable.duty_ju1_34
                 "duty_ju2_1" -> com.shinnk.nextduty.R.drawable.duty_ju2_1
                 "duty_ju2_23" -> com.shinnk.nextduty.R.drawable.duty_ju2_23
-                else -> context.resources.getIdentifier(resName, "drawable", context.packageName)
+                else -> context.resources.getIdentifier(resName, "drawable", context.packageName).takeIf { it != 0 }
             }
-        } else 0
+        } else {
+            File(model).takeIf { it.exists() }
+        }
     }
 
     Box(
@@ -203,57 +200,28 @@ fun ZoomableAsyncImage(model: String, onZoomChanged: (Boolean) -> Unit) {
             },
         contentAlignment = Alignment.Center
     ) {
-        if (isResource) {
-            if (resId != 0) {
-                Image(
-                    painter = painterResource(resId),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(
-                            scaleX = scale,
-                            scaleY = scale,
-                            translationX = offset.x,
-                            translationY = offset.y
-                        ),
-                    contentScale = ContentScale.Fit
-                )
-                // painterResource is synchronous and usually doesn't need a loader
-                SideEffect {
-                    isLoading = false
-                    isError = false
+        if (imageModel != null) {
+            AsyncImage(
+                model = imageModel,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        translationX = offset.x,
+                        translationY = offset.y
+                    ),
+                contentScale = ContentScale.Fit,
+                onState = { state ->
+                    isLoading = state is AsyncImagePainter.State.Loading
+                    isError = state is AsyncImagePainter.State.Error
                 }
-            } else {
-                SideEffect {
-                    isLoading = false
-                    isError = true
-                }
-            }
+            )
         } else {
-            val file = remember(model) { File(model) }
-            if (file.exists()) {
-                AsyncImage(
-                    model = file,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(
-                            scaleX = scale,
-                            scaleY = scale,
-                            translationX = offset.x,
-                            translationY = offset.y
-                        ),
-                    contentScale = ContentScale.Fit,
-                    onState = { state ->
-                        isLoading = state is AsyncImagePainter.State.Loading
-                        isError = state is AsyncImagePainter.State.Error
-                    }
-                )
-            } else {
-                SideEffect {
-                    isLoading = false
-                    isError = true
-                }
+            SideEffect {
+                isLoading = false
+                isError = true
             }
         }
         
@@ -263,7 +231,7 @@ fun ZoomableAsyncImage(model: String, onZoomChanged: (Boolean) -> Unit) {
 
         if (isError) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Default.ErrorOutline, "Error", tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(48.dp))
+                Icon(Icons.Default.ErrorOutline, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(48.dp))
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "이미지를 불러올 수 없습니다.",

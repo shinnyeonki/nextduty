@@ -20,6 +20,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import android.app.NotificationChannel
+import android.os.PowerManager
 import com.shinnk.nextduty.data.DutyRepository
 import com.shinnk.nextduty.system.AlarmProvider
 import com.shinnk.nextduty.ui.MainApp
@@ -27,6 +29,10 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+
+    companion object {
+        const val PRIVACY_POLICY_URL = "https://shinnk.notion.site/NEXTDUTY-38265b7eac9480e485ccfa15c7045e73"
+    }
 
     private lateinit var repository: DutyRepository
     private lateinit var alarmProvider: AlarmProvider
@@ -41,6 +47,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        createNotificationChannel()
         setShowWhenLocked(true)
         setTurnScreenOn(true)
 
@@ -133,6 +140,21 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         checkAndRequestPermissions()
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "근무 교대 알람"
+            val descriptionText = "근무 교대 시간을 알려주는 알림입니다."
+            val importance = NotificationManager.IMPORTANCE_MAX
+            val channel = NotificationChannel("duty_alarm_channel", name, importance).apply {
+                description = descriptionText
+                setBypassDnd(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            }
+            val notificationManager: NotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
     }
 
     private fun checkAndRequestPermissions() {

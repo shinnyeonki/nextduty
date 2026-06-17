@@ -1,4 +1,4 @@
-package com.shinnk.nextduty
+package com.shinnk.nextduty.data
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

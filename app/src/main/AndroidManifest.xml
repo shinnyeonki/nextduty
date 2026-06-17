@@ -33,11 +33,11 @@
         </activity>
 
         <receiver
-            android:name=".AlarmReceiver"
+            android:name=".system.AlarmReceiver"
             android:exported="false" />
 
         <receiver
-            android:name=".BootReceiver"
+            android:name=".system.BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

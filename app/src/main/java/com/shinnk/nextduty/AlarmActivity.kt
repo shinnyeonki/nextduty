@@ -1,132 +1,110 @@
 package com.shinnk.nextduty
 
-import android.content.Context
-import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.media.RingtoneManager
-import android.os.Build
-import android.os.Bundle
+import android.os.*
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.shinnk.nextduty.system.AlarmProvider
 
 class AlarmActivity : ComponentActivity() {
-
-    private var mediaPlayer: MediaPlayer? = null
+    private lateinit var alarmProvider: AlarmProvider
+    private lateinit var vibrator: Vibrator
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+        alarmProvider = AlarmProvider(this)
+
         // 화면 깨우기 및 잠금 화면 위에 표시 설정
-        // 잠금 화면 위에 정상적으로 액티비티를 띄우기 위해 설정하며,
-        // onCreate에서 키가드 해제를 직접 요청하지 않아야 keyguard 상태 변화로 인한 즉시 Pause/Finish 문제를 예방할 수 있습니다.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
         } else {
             @Suppress("DEPRECATION")
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
+            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
         }
-        
-        // 화면이 꺼지지 않도록 유지
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD)
 
-        // 알람 소리 시작
-        startAlarmSound()
+        val displayTime = intent.getStringExtra("display_time") ?: "00:00"
+        val location = intent.getStringExtra("location") ?: "근무지"
 
-        val location = intent.getStringExtra("location") ?: "다음 근무지"
-        val startTime = intent.getStringExtra("startTime") ?: ""
+        startVibration()
+        alarmProvider.startAlarmSound()
 
-        enableEdgeToEdge()
         setContent {
-            AlarmAlertScreen(
-                location = location,
-                startTime = startTime,
-                onDismiss = {
-                    dismissAlarm()
-                }
-            )
-        }
-    }
-
-    private fun startAlarmSound() {
-        try {
-            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(this@AlarmActivity, alarmUri)
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build()
-                )
-                isLooping = true
-                prepare()
-                start()
+            AlarmScreen(displayTime, location) {
+                stopAlarm()
+                finish()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
-    private fun stopAlarmSound() {
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
-        mediaPlayer = null
-    }
+    private fun startVibration() {
+        vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = getSystemService(VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(VIBRATOR_SERVICE) as Vibrator
+        }
 
-    private fun dismissAlarm() {
-        stopAlarmSound()
-        AlarmCenter(this).dismissAlarm()
-        finish()
-    }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        // 홈 버튼을 누르거나 다른 앱이 포그라운드로 올 때 (전화 수신 등) 알람을 안전하게 종료합니다.
-        if (!isFinishing) {
-            dismissAlarm()
+        val pattern = longArrayOf(0, 800, 400, 800, 400)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(pattern, 0)
         }
     }
 
-    override fun onStop() {
-        super.onStop()
-        // 화면 꺼짐(전원 버튼 누름, 화면 타임아웃) 또는 앱이 완전히 가려졌을 때 알람을 안전하게 종료합니다.
-        // 잠금화면 최초 표시 시 발생하는 onPause 이벤트를 회피하고, 실제 화면이 꺼지는 등의 경우에만 완결성 있게 동작하도록 보장합니다.
-        if (!isFinishing) {
-            dismissAlarm()
-        }
+    private fun stopAlarm() {
+        alarmProvider.stopAlarmSound()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        stopAlarmSound()
+        stopAlarm()
+    }
+
+    // 뒤로 가기 버튼으로 알람 끄기 방지 (명시적 버튼 클릭 유도)
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        // Do nothing or call super.onBackPressed() if you want to allow it
+        // super.onBackPressed()
     }
 }
 
 @Composable
-fun AlarmAlertScreen(location: String, startTime: String, onDismiss: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.errorContainer
+fun AlarmScreen(time: String, location: String, onDismiss: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+            )
     ) {
         Column(
             modifier = Modifier
@@ -135,67 +113,107 @@ fun AlarmAlertScreen(location: String, startTime: String, onDismiss: () -> Unit)
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // 상단 애니메이션 효과를 위한 아이콘 컨테이너
             Surface(
-                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier
+                    .size(120.dp)
+                    .shadow(12.dp, CircleShape),
                 shape = CircleShape,
-                modifier = Modifier.size(100.dp)
+                color = Color.White.copy(alpha = 0.2f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.errorContainer,
-                        modifier = Modifier.size(48.dp)
+                        Icons.Default.Alarm,
+                        null,
+                        modifier = Modifier.size(60.dp),
+                        tint = Color.White
                     )
                 }
             }
-
-            Spacer(Modifier.height(40.dp))
-
+            
+            Spacer(Modifier.height(48.dp))
+            
             Text(
-                text = "근무 이동 알림",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            Text(
-                text = "[$startTime] 이동 준비",
+                "근무 교대 알람",
                 style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                color = Color.White.copy(alpha = 0.9f),
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
             )
-
+            
             Spacer(Modifier.height(8.dp))
-
+            
+            // 시간 표시 (Premium Style)
             Text(
-                text = location,
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                textAlign = TextAlign.Center
+                time,
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontSize = 88.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-3).sp
+                ),
+                color = Color.White
             )
-
-            Spacer(Modifier.height(64.dp))
-
+            
+            Spacer(Modifier.height(40.dp))
+            
+            // 장소 안내 카드 (StatusScreen과 유사한 스타일)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(24.dp, RoundedCornerShape(32.dp)),
+                shape = RoundedCornerShape(32.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "현재 이동할 장소",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        location,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            
+            Spacer(Modifier.height(80.dp))
+            
+            // 프리미엄 중지 버튼
             Button(
                 onClick = onDismiss,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(80.dp),
+                    .height(84.dp)
+                    .shadow(16.dp, RoundedCornerShape(28.dp)),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.onErrorContainer,
-                    contentColor = MaterialTheme.colorScheme.errorContainer
+                    containerColor = Color.White,
+                    contentColor = MaterialTheme.colorScheme.primary
                 ),
-                shape = CircleShape
+                shape = RoundedCornerShape(28.dp),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 8.dp,
+                    pressedElevation = 2.dp
+                )
             ) {
-                Icon(Icons.Default.Check, contentDescription = null)
+                Icon(Icons.Default.Close, null, modifier = Modifier.size(28.dp))
                 Spacer(Modifier.width(12.dp))
                 Text(
-                    "확인했습니다",
+                    "알람 끄기",
                     style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Black
                 )
             }
         }

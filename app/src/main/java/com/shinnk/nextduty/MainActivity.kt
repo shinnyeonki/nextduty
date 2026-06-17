@@ -20,12 +20,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.shinnk.nextduty.data.DutyRepository
+import com.shinnk.nextduty.system.AlarmProvider
+import com.shinnk.nextduty.ui.MainApp
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var preferenceManager: PreferenceManager
-    private lateinit var alarmCenter: AlarmCenter
+    private lateinit var repository: DutyRepository
+    private lateinit var alarmProvider: AlarmProvider
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -37,34 +41,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // 화면 깨우기 및 잠금 화면 위에 표시 설정
         setShowWhenLocked(true)
         setTurnScreenOn(true)
 
-        // 앱이 켜지면 알람 소리 중지
-        alarmCenter = AlarmCenter(this)
-        alarmCenter.dismissAlarm()
+        alarmProvider = AlarmProvider(this)
+        alarmProvider.stopAlarmSound()
 
         enableEdgeToEdge()
-        
-        preferenceManager = PreferenceManager(this)
+        repository = DutyRepository(this)
         
         setContent {
-            val dutySettings by preferenceManager.dutySettings.collectAsState(initial = null)
-            val ptStatus by preferenceManager.ptStatus.collectAsState(initial = false)
-            val isAppActive by preferenceManager.isAppActive.collectAsState(initial = true)
-            val workScheduleImages by preferenceManager.workScheduleImages.collectAsState(initial = emptyList())
-            val dutyTableImages by preferenceManager.dutyTableImages.collectAsState(initial = emptyList())
-            val customDutyTables by preferenceManager.customDutyTables.collectAsState(initial = null)
-            val alarmLeadTime by preferenceManager.alarmLeadTime.collectAsState(initial = 5)
+            val dutySettings by repository.dutySettings.collectAsState(initial = null)
+            val ptStatus by repository.ptStatus.collectAsState(initial = false)
+            val isAppActive by repository.isAppActive.collectAsState(initial = true)
+            val workScheduleImages by repository.workScheduleImages.collectAsState(initial = emptyList())
+            val dutyTableImages by repository.dutyTableImages.collectAsState(initial = emptyList())
+            val allTables by repository.allTables.collectAsState(initial = repository.getDefaultTables())
+            val alarmLeadTime by repository.alarmLeadTime.collectAsState(initial = 5)
 
-            LaunchedEffect(customDutyTables) {
-                DutyCore.setCustomTables(customDutyTables)
-            }
-
-            DutyApp(
+            MainApp(
                 dutySettings = dutySettings,
+                allTables = allTables,
                 ptStatus = ptStatus,
                 isAppActive = isAppActive,
                 workScheduleImages = workScheduleImages,
@@ -72,67 +69,59 @@ class MainActivity : ComponentActivity() {
                 alarmLeadTime = alarmLeadTime,
                 onSaveSettings = { tableName, number ->
                     lifecycleScope.launch {
-                        preferenceManager.saveDutySettings(tableName, number, ptStatus)
+                        repository.saveDutySettings(tableName, number, ptStatus)
                         if (isAppActive) {
-                            alarmCenter.scheduleAlarms(tableName, number, ptStatus, alarmLeadTime)
+                            val table = allTables.find { it.displayName == tableName }
+                            if (table != null) alarmProvider.scheduleAlarms(table, number, ptStatus, alarmLeadTime)
                         }
                     }
                 },
                 onSavePtStatus = { status ->
                     lifecycleScope.launch {
-                        preferenceManager.savePtStatus(status)
+                        repository.savePtStatus(status)
                         if (isAppActive) {
                             dutySettings?.let { settings ->
-                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, status, alarmLeadTime)
+                                val table = allTables.find { it.displayName == settings.tableName }
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, status, alarmLeadTime)
                             }
                         }
                     }
                 },
                 onSaveAppActiveStatus = { isActive ->
                     lifecycleScope.launch {
-                        preferenceManager.saveAppActiveStatus(isActive)
+                        repository.saveAppActiveStatus(isActive)
                         if (isActive) {
                             dutySettings?.let { settings ->
-                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, settings.isPt, alarmLeadTime)
+                                val table = allTables.find { it.displayName == settings.tableName }
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, alarmLeadTime)
                             }
                         } else {
-                            alarmCenter.cancelAllAlarms()
+                            alarmProvider.cancelAllAlarms()
                         }
                     }
                 },
-                onSaveWorkScheduleImages = { images ->
-                    lifecycleScope.launch {
-                        preferenceManager.saveWorkScheduleImages(images)
-                    }
-                },
-                onSaveDutyTableImages = { images ->
-                    lifecycleScope.launch {
-                        preferenceManager.saveDutyTableImages(images)
-                    }
-                },
-                onEdit = {
-                    lifecycleScope.launch {
-                        alarmCenter.cancelAllAlarms()
-                    }
-                },
+                onSaveWorkScheduleImages = { images -> lifecycleScope.launch { repository.saveWorkScheduleImages(images) } },
+                onSaveDutyTableImages = { images -> lifecycleScope.launch { repository.saveDutyTableImages(images) } },
+                onEdit = { lifecycleScope.launch { alarmProvider.cancelAllAlarms() } },
                 onSaveCustomDutyTables = { tables ->
                     lifecycleScope.launch {
-                        preferenceManager.saveCustomDutyTables(tables)
-                        // 알람 재설정
+                        repository.saveCustomDutyTables(tables)
                         dutySettings?.let { settings ->
                             if (isAppActive) {
-                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, settings.isPt, alarmLeadTime)
+                                val currentTables = repository.allTables.firstOrNull() ?: emptyList()
+                                val table = currentTables.find { it.displayName == settings.tableName }
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, alarmLeadTime)
                             }
                         }
                     }
                 },
                 onSaveAlarmLeadTime = { minutes ->
                     lifecycleScope.launch {
-                        preferenceManager.saveAlarmLeadTime(minutes)
-                        // 알람 재설정
+                        repository.saveAlarmLeadTime(minutes)
                         dutySettings?.let { settings ->
                             if (isAppActive) {
-                                alarmCenter.scheduleAlarms(settings.tableName, settings.number, settings.isPt, minutes)
+                                val table = allTables.find { it.displayName == settings.tableName }
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, minutes)
                             }
                         }
                     }
@@ -147,69 +136,40 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkAndRequestPermissions() {
-        // 1. 알림 권한 (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 return
             }
         }
-
-        // 3. 정확한 알람 권한 (Android 12+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
             if (!alarmManager.canScheduleExactAlarms()) {
-                Toast.makeText(this, "정확한 알람 권한이 필요합니다. 설정에서 허용해주세요.", Toast.LENGTH_LONG).show()
-                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                    data = Uri.fromParts("package", packageName, null)
-                }
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply { data = Uri.fromParts("package", packageName, null) }
                 startActivity(intent)
                 return
             }
         }
-
-        // 3. 전체 화면 알림 권한 (Android 14+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            if (!notificationManager.canUseFullScreenIntent()) {
-                Toast.makeText(this, "전체 화면 알림 권한이 필요합니다. '전체 화면 알림 허용'을 켜주세요.", Toast.LENGTH_LONG).show()
-                val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
-                    data = Uri.fromParts("package", packageName, null)
-                }
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (!nm.canUseFullScreenIntent()) {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply { data = Uri.fromParts("package", packageName, null) }
                 startActivity(intent)
                 return
             }
         }
-
-        // 4. 다른 앱 위에 표시 권한 (Overlay Permission)
-        // 백그라운드에서 액티비티를 강제로 띄우기 위해 필요한 권한입니다.
         if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "화면 사용 중에도 알림을 즉시 보려면 '다른 앱 위에 표시' 권한이 필요합니다.", Toast.LENGTH_LONG).show()
-            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-                data = Uri.fromParts("package", packageName, null)
-            }
+            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply { data = Uri.fromParts("package", packageName, null) }
             startActivity(intent)
             return
         }
-
-        // 5. 방해 금지 모드 무시 권한 (Notification Policy Access)
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (!notificationManager.isNotificationPolicyAccessGranted) {
-            Toast.makeText(this, "방해 금지 모드에서도 알림을 울리려면 권한이 필요합니다. 'NextDuty'를 허용해주세요.", Toast.LENGTH_LONG).show()
             val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
-                // 패키지 정보를 추가하여 해당 앱으로 바로 이동 시도
                 data = Uri.fromParts("package", packageName, null)
-                // 추가적인 힌트 정보 제공 (일부 제조사 대응)
                 putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                putExtra("android.provider.extra.APP_PACKAGE", packageName)
             }
-            try {
-                startActivity(intent)
-            } catch (_: Exception) {
-                // 일부 기기에서 data URI를 지원하지 않을 경우 일반 리스트 호출
-                startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
-            }
-            return
+            try { startActivity(intent) } catch (_: Exception) { startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) }
         }
     }
 }

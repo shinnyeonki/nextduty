@@ -3,6 +3,7 @@ package com.shinnk.nextduty.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -16,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,10 +28,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.io.File
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import com.shinnk.nextduty.system.ImageStorage
 
 @Composable
@@ -154,20 +158,24 @@ fun ZoomableAsyncImage(model: String, onZoomChanged: (Boolean) -> Unit) {
     val context = LocalContext.current
     var scale by remember(model) { mutableFloatStateOf(1f) }
     var offset by remember(model) { mutableStateOf(Offset.Zero) }
+    var isLoading by remember { mutableStateOf(true) }
+    var isError by remember { mutableStateOf(false) }
 
-    val imageModel = remember(model, context) {
-        if (model.startsWith("res:")) {
+    // State to keep track of resource loading
+    val isResource = model.startsWith("res:")
+    val resId = remember(model, context) {
+        if (isResource) {
             val resName = model.substringAfter("res:")
-            var resId = context.resources.getIdentifier(resName, "drawable", context.packageName)
-            if (resId == 0) {
-                // Fallback for debug build suffixes (e.g. .debug)
-                resId = context.resources.getIdentifier(resName, "drawable", "com.shinnk.nextduty")
+            // Directly reference R.drawable constants to prevent the resource shrinker 
+            // from removing these resources in release builds.
+            when (resName) {
+                "duty_ju1_12" -> com.shinnk.nextduty.R.drawable.duty_ju1_12
+                "duty_ju1_34" -> com.shinnk.nextduty.R.drawable.duty_ju1_34
+                "duty_ju2_1" -> com.shinnk.nextduty.R.drawable.duty_ju2_1
+                "duty_ju2_23" -> com.shinnk.nextduty.R.drawable.duty_ju2_23
+                else -> context.resources.getIdentifier(resName, "drawable", context.packageName)
             }
-            if (resId != 0) resId else "android.resource://${context.packageName}/drawable/$resName"
-        } else {
-            val file = File(model)
-            if (file.exists()) file else null
-        }
+        } else 0
     }
 
     Box(
@@ -192,28 +200,77 @@ fun ZoomableAsyncImage(model: String, onZoomChanged: (Boolean) -> Unit) {
                         }
                     } while (event.changes.any { it.pressed })
                 }
-            }
+            },
+        contentAlignment = Alignment.Center
     ) {
-        AsyncImage(
-            model = imageModel,
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer(
-                    scaleX = scale,
-                    scaleY = scale,
-                    translationX = offset.x,
-                    translationY = offset.y
-                ),
-            contentScale = ContentScale.Fit
-        )
+        if (isResource) {
+            if (resId != 0) {
+                Image(
+                    painter = painterResource(resId),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y
+                        ),
+                    contentScale = ContentScale.Fit
+                )
+                // painterResource is synchronous and usually doesn't need a loader
+                SideEffect {
+                    isLoading = false
+                    isError = false
+                }
+            } else {
+                SideEffect {
+                    isLoading = false
+                    isError = true
+                }
+            }
+        } else {
+            val file = remember(model) { File(model) }
+            if (file.exists()) {
+                AsyncImage(
+                    model = file,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y
+                        ),
+                    contentScale = ContentScale.Fit,
+                    onState = { state ->
+                        isLoading = state is AsyncImagePainter.State.Loading
+                        isError = state is AsyncImagePainter.State.Error
+                    }
+                )
+            } else {
+                SideEffect {
+                    isLoading = false
+                    isError = true
+                }
+            }
+        }
         
-        if (imageModel == null) {
-            Text(
-                "이미지를 불러올 수 없습니다.",
-                modifier = Modifier.align(Alignment.Center),
-                color = Color.White.copy(alpha = 0.5f)
-            )
+        if (isLoading && !isError) {
+            CircularProgressIndicator(color = Color.White.copy(alpha = 0.5f))
+        }
+
+        if (isError) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.ErrorOutline, "Error", tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(48.dp))
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "이미지를 불러올 수 없습니다.",
+                    color = Color.White.copy(alpha = 0.5f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
 }

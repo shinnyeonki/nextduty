@@ -27,21 +27,17 @@ fun HomeFeature(
     dutySettings: DutySettings?,
     allTables: List<DutyTable>,
     ptStatus: Boolean,
+    isEditing: Boolean,
     onSaveSettings: (String, Int) -> Unit,
     onSavePtStatus: (Boolean) -> Unit,
     onEdit: () -> Unit
 ) {
-    var isEditing by remember { mutableStateOf(dutySettings == null) }
-
     if (isEditing || dutySettings == null) {
         InputScreen(
             initialSettings = dutySettings,
             allTables = allTables,
             ptStatus = ptStatus,
-            onSave = { tableName, number ->
-                onSaveSettings(tableName, number)
-                isEditing = false
-            },
+            onSave = onSaveSettings,
             onSavePtStatus = onSavePtStatus
         )
     } else {
@@ -49,10 +45,7 @@ fun HomeFeature(
         StatusScreen(
             settings = dutySettings,
             table = currentTable,
-            onEdit = { 
-                isEditing = true
-                onEdit()
-            }
+            onEdit = onEdit
         )
     }
 }

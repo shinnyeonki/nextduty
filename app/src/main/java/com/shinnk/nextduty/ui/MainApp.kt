@@ -43,6 +43,8 @@ fun MainApp(
     onSaveAlarmLeadTime: (Int) -> Unit
 ) {
     var selectedBottomTab by remember { mutableIntStateOf(0) }
+    var isEditing by remember { mutableStateOf(dutySettings == null) }
+    
     var showPatrolDialog by remember { mutableStateOf(false) }
     var showPlanEditorDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
@@ -63,7 +65,7 @@ fun MainApp(
                 Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
                     Text("더보기", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(40.dp))
-                    NavigationDrawerItem(label = { Text("근무 설정", fontWeight = FontWeight.Bold) }, selected = false, onClick = { scope.launch { drawerState.close(); selectedBottomTab = 0 } }, icon = { Icon(Icons.Default.EditNote, null) }, shape = RoundedCornerShape(16.dp))
+                    NavigationDrawerItem(label = { Text("근무 설정", fontWeight = FontWeight.Bold) }, selected = false, onClick = { scope.launch { drawerState.close(); selectedBottomTab = 0; isEditing = true } }, icon = { Icon(Icons.Default.EditNote, null) }, shape = RoundedCornerShape(16.dp))
                     Spacer(Modifier.height(8.dp))
                     NavigationDrawerItem(label = { Text("순찰", fontWeight = FontWeight.Bold) }, selected = false, onClick = { scope.launch { drawerState.close(); showPatrolDialog = true } }, icon = { Icon(Icons.Default.Security, null) }, shape = RoundedCornerShape(16.dp))
                     Spacer(Modifier.height(8.dp))
@@ -87,7 +89,7 @@ fun MainApp(
             topBar = { CenterAlignedTopAppBar(title = { Text(when(selectedBottomTab) { 1 -> "근무표 사진첩"; 2 -> "편성표 사진첩"; else -> "NEXT DUTY" }, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, letterSpacing = 2.sp, color = MaterialTheme.colorScheme.primary) }, navigationIcon = { IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Default.Menu, "Menu") } }, colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)) },
             bottomBar = {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 8.dp) {
-                    NavigationBarItem(selected = selectedBottomTab == 0, onClick = { selectedBottomTab = 0 }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("홈") })
+                    NavigationBarItem(selected = selectedBottomTab == 0, onClick = { selectedBottomTab = 0; isEditing = false }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("홈") })
                     NavigationBarItem(selected = selectedBottomTab == 1, onClick = { selectedBottomTab = 1 }, icon = { Icon(Icons.Default.PhotoLibrary, null) }, label = { Text("근무표 사진첩") })
                     NavigationBarItem(selected = selectedBottomTab == 2, onClick = { selectedBottomTab = 2 }, icon = { Icon(Icons.AutoMirrored.Filled.List, null) }, label = { Text("편성표 사진첩") })
                 }
@@ -97,7 +99,21 @@ fun MainApp(
             Box(modifier = Modifier.fillMaxSize().padding(padding).clipToBounds()) {
                 AnimatedContent(targetState = selectedBottomTab, transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) }, label = "TabTransition") { tabIndex ->
                     when (tabIndex) {
-                        0 -> HomeFeature(dutySettings = dutySettings, allTables = allTables, ptStatus = ptStatus, onSaveSettings = onSaveSettings, onSavePtStatus = onSavePtStatus, onEdit = onEdit)
+                        0 -> HomeFeature(
+                            dutySettings = dutySettings, 
+                            allTables = allTables, 
+                            ptStatus = ptStatus, 
+                            isEditing = isEditing,
+                            onSaveSettings = { tableName, number ->
+                                onSaveSettings(tableName, number)
+                                isEditing = false
+                            }, 
+                            onSavePtStatus = onSavePtStatus, 
+                            onEdit = {
+                                isEditing = true
+                                onEdit()
+                            }
+                        )
                         1 -> GalleryFeature(images = workScheduleImages, onSaveImages = onSaveWorkScheduleImages)
                         2 -> GalleryFeature(images = dutyTableImages, onSaveImages = onSaveDutyTableImages)
                     }

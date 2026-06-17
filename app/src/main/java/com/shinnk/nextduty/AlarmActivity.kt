@@ -4,6 +4,7 @@ import android.os.*
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -94,74 +95,45 @@ class AlarmActivity : ComponentActivity() {
 
 @Composable
 fun AlarmScreen(time: String, location: String, onDismiss: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.primary,
-                        MaterialTheme.colorScheme.primaryContainer
-                    )
-                )
-            )
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.primary
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // 상단 애니메이션 효과를 위한 아이콘 컨테이너
-            Surface(
-                modifier = Modifier
-                    .size(120.dp)
-                    .shadow(12.dp, CircleShape),
-                shape = CircleShape,
-                color = Color.White.copy(alpha = 0.2f)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Default.Alarm,
-                        null,
-                        modifier = Modifier.size(60.dp),
-                        tint = Color.White
-                    )
-                }
-            }
-            
-            Spacer(Modifier.height(48.dp))
-            
+            // 상단 타이틀
             Text(
                 "근무 교대 알람",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color.White.copy(alpha = 0.9f),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White.copy(alpha = 0.7f),
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
+                letterSpacing = 2.sp
             )
-            
-            Spacer(Modifier.height(8.dp))
-            
-            // 시간 표시 (Premium Style)
+
+            Spacer(Modifier.height(16.dp))
+
+            // 메인 시간 표시 (가장 크게)
             Text(
                 time,
                 style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 88.sp,
+                    fontSize = 100.sp,
                     fontWeight = FontWeight.Black,
-                    letterSpacing = (-3).sp
+                    letterSpacing = (-4).sp
                 ),
                 color = Color.White
             )
-            
-            Spacer(Modifier.height(40.dp))
-            
-            // 장소 안내 카드 (StatusScreen과 유사한 스타일)
+
+            Spacer(Modifier.height(48.dp))
+
+            // 장소 안내 카드 (StatusScreen 스타일과 통일)
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(24.dp, RoundedCornerShape(32.dp)),
-                shape = RoundedCornerShape(32.dp),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -173,10 +145,9 @@ fun AlarmScreen(time: String, location: String, onDismiss: () -> Unit) {
                 ) {
                     Text(
                         "현재 이동할 장소",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.sp
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(
@@ -188,31 +159,27 @@ fun AlarmScreen(time: String, location: String, onDismiss: () -> Unit) {
                     )
                 }
             }
-            
-            Spacer(Modifier.height(80.dp))
-            
-            // 프리미엄 중지 버튼
+
+            Spacer(Modifier.height(64.dp))
+
+            // 중지 버튼 (Premium 스타일)
             Button(
                 onClick = onDismiss,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(84.dp)
-                    .shadow(16.dp, RoundedCornerShape(28.dp)),
+                    .height(72.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = MaterialTheme.colorScheme.primary
+                    containerColor = Color.White.copy(alpha = 0.2f),
+                    contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(28.dp),
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 8.dp,
-                    pressedElevation = 2.dp
-                )
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
             ) {
-                Icon(Icons.Default.Close, null, modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.Close, null, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(12.dp))
                 Text(
                     "알람 끄기",
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black
                 )
             }

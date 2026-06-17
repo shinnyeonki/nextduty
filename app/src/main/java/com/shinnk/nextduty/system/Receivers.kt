@@ -10,7 +10,6 @@ import androidx.core.app.NotificationCompat
 import com.shinnk.nextduty.AlarmActivity
 import com.shinnk.nextduty.R
 import com.shinnk.nextduty.data.DutyRepository
-import com.shinnk.nextduty.data.ShiftPattern
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -66,7 +65,7 @@ class BootReceiver : BroadcastReceiver() {
                     if (settings != null) {
                         val table = allTables.find { it.displayName == settings.tableName }
                         if (table != null) {
-                            alarmProvider.scheduleAlarms(table, settings.number, settings.shiftPattern, leadTime)
+                            alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, leadTime)
                         }
                     }
                 }

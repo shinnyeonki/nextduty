@@ -25,9 +25,9 @@ class AlarmProvider(private val context: Context) {
         private var ringtone: Ringtone? = null
     }
 
-    fun scheduleAlarms(table: DutyTable, number: Int, shiftPattern: ShiftPattern, leadTime: Int) {
+    fun scheduleAlarms(table: DutyTable, number: Int, isPt: Boolean, leadTime: Int) {
         cancelAllAlarms()
-        val schedules = DutyCalculator.getAlarmSchedules(table, number, shiftPattern, leadTime)
+        val schedules = DutyCalculator.getAlarmSchedules(table, number, isPt, leadTime)
         val now = LocalDateTime.now()
 
         schedules.forEachIndexed { index, alarm ->

@@ -26,23 +26,23 @@ data class DutySlot(
 )
 
 @Serializable
+enum class PtEffect {
+    @SerialName("late_start") LATE_START,
+    @SerialName("early_finish") EARLY_FINISH
+}
+
+@Serializable
 data class DutyTable(
-    val displayName: String,  // e.g., "주1-1"
-    val capacity: Int,       // 2, 3, 4명 등
+    val displayName: String,
+    val capacity: Int,
+    val ptEffect: PtEffect,
     val slots: List<DutySlot>
 )
 
-@Serializable
-enum class ShiftPattern(val displayName: String) {
-    @SerialName("none") NONE("정상 출퇴근"),
-    @SerialName("late_start") LATE_START("+30m 출근"),
-    @SerialName("early_finish") EARLY_FINISH("-30m 퇴근")
-}
-
 data class DutySettings(
-    val tableName: String, // e.g., "주1-1"
+    val tableName: String,
     val number: Int,
-    val shiftPattern: ShiftPattern
+    val isPt: Boolean
 )
 
 data class DutyInfo(

@@ -23,7 +23,6 @@ import androidx.lifecycle.lifecycleScope
 import android.app.NotificationChannel
 import android.os.PowerManager
 import com.shinnk.nextduty.data.DutyRepository
-import com.shinnk.nextduty.data.ShiftPattern
 import com.shinnk.nextduty.system.AlarmProvider
 import com.shinnk.nextduty.ui.MainApp
 import kotlinx.coroutines.flow.firstOrNull
@@ -60,7 +59,7 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             val dutySettings by repository.dutySettings.collectAsState(initial = null)
-            val shiftPattern by repository.shiftPattern.collectAsState(initial = ShiftPattern.NONE)
+            val isPt by repository.isPt.collectAsState(initial = false)
             val isAppActive by repository.isAppActive.collectAsState(initial = true)
             val workScheduleImages by repository.workScheduleImages.collectAsState(initial = emptyList())
             val dutyTableImages by repository.dutyTableImages.collectAsState(initial = emptyList())
@@ -70,28 +69,17 @@ class MainActivity : ComponentActivity() {
             MainApp(
                 dutySettings = dutySettings,
                 allTables = allTables,
-                shiftPattern = shiftPattern,
+                isPt = isPt,
                 isAppActive = isAppActive,
                 workScheduleImages = workScheduleImages,
                 dutyTableImages = dutyTableImages,
                 alarmLeadTime = alarmLeadTime,
-                onSaveSettings = { tableName, number ->
+                onSaveSettings = { tableName, number, pt ->
                     lifecycleScope.launch {
-                        repository.saveDutySettings(tableName, number, shiftPattern)
+                        repository.saveDutySettings(tableName, number, pt)
                         if (isAppActive) {
                             val table = allTables.find { it.displayName == tableName }
-                            if (table != null) alarmProvider.scheduleAlarms(table, number, shiftPattern, alarmLeadTime)
-                        }
-                    }
-                },
-                onSaveShiftPattern = { pattern ->
-                    lifecycleScope.launch {
-                        repository.saveShiftPattern(pattern)
-                        if (isAppActive) {
-                            dutySettings?.let { settings ->
-                                val table = allTables.find { it.displayName == settings.tableName }
-                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, pattern, alarmLeadTime)
-                            }
+                            if (table != null) alarmProvider.scheduleAlarms(table, number, pt, alarmLeadTime)
                         }
                     }
                 },
@@ -101,7 +89,7 @@ class MainActivity : ComponentActivity() {
                         if (isActive) {
                             dutySettings?.let { settings ->
                                 val table = allTables.find { it.displayName == settings.tableName }
-                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.shiftPattern, alarmLeadTime)
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, alarmLeadTime)
                             }
                         } else {
                             alarmProvider.cancelAllAlarms()
@@ -118,7 +106,7 @@ class MainActivity : ComponentActivity() {
                             if (isAppActive) {
                                 val currentTables = repository.allTables.firstOrNull() ?: emptyList()
                                 val table = currentTables.find { it.displayName == settings.tableName }
-                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.shiftPattern, alarmLeadTime)
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, alarmLeadTime)
                             }
                         }
                     }
@@ -129,7 +117,7 @@ class MainActivity : ComponentActivity() {
                         dutySettings?.let { settings ->
                             if (isAppActive) {
                                 val table = allTables.find { it.displayName == settings.tableName }
-                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.shiftPattern, minutes)
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, minutes)
                             }
                         }
                     }

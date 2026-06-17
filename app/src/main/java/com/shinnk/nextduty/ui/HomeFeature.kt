@@ -27,19 +27,17 @@ import java.time.LocalTime
 fun HomeFeature(
     dutySettings: DutySettings?,
     allTables: List<DutyTable>,
-    shiftPattern: ShiftPattern,
+    isPt: Boolean,
     isEditing: Boolean,
-    onSaveSettings: (String, Int) -> Unit,
-    onSaveShiftPattern: (ShiftPattern) -> Unit,
+    onSaveSettings: (String, Int, Boolean) -> Unit,
     onEdit: () -> Unit
 ) {
     if (isEditing || dutySettings == null) {
         InputScreen(
             initialSettings = dutySettings,
             allTables = allTables,
-            shiftPattern = shiftPattern,
-            onSave = onSaveSettings,
-            onSaveShiftPattern = onSaveShiftPattern
+            isPt = isPt,
+            onSave = onSaveSettings
         )
     } else {
         val currentTable = allTables.find { it.displayName == dutySettings.tableName } ?: allTables.first()
@@ -138,13 +136,13 @@ private fun StatusScreen(settings: DutySettings, table: DutyTable, onEdit: () ->
 private fun InputScreen(
     initialSettings: DutySettings?,
     allTables: List<DutyTable>,
-    shiftPattern: ShiftPattern,
-    onSave: (String, Int) -> Unit,
-    onSaveShiftPattern: (ShiftPattern) -> Unit
+    isPt: Boolean,
+    onSave: (String, Int, Boolean) -> Unit
 ) {
     val initialTableName = initialSettings?.tableName ?: "주1-1"
     var selectedTable by remember { mutableStateOf(allTables.find { it.displayName == initialTableName } ?: allTables.first()) }
     var selectedNumber by remember { mutableIntStateOf(initialSettings?.number ?: 1) }
+    var selectedIsPt by remember { mutableStateOf(initialSettings?.isPt ?: isPt) }
     var showConfirmDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedTable) { if (selectedNumber > selectedTable.capacity) selectedNumber = 1 }
@@ -153,8 +151,8 @@ private fun InputScreen(
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             title = { Text("설정 확인", fontWeight = FontWeight.Bold) },
-            text = { Text("'${selectedTable.displayName}' 편성표의 ${selectedNumber}번 근무로 설정하시겠습니까?") },
-            confirmButton = { Button(onClick = { onSave(selectedTable.displayName, selectedNumber); showConfirmDialog = false }) { Text("확인") } },
+            text = { Text("'${selectedTable.displayName}' 편성표의 ${selectedNumber}번 근무${if (selectedIsPt) "(PT 적용)" else ""}로 설정하시겠습니까?") },
+            confirmButton = { Button(onClick = { onSave(selectedTable.displayName, selectedNumber, selectedIsPt); showConfirmDialog = false }) { Text("확인") } },
             dismissButton = { TextButton(onClick = { showConfirmDialog = false }) { Text("취소") } }
         )
     }
@@ -203,7 +201,7 @@ private fun InputScreen(
         }
 
         Spacer(Modifier.height(32.dp))
-        ShiftPatternSection(shiftPattern, onSaveShiftPattern)
+        PtStatusCard(selectedIsPt) { selectedIsPt = it }
         
         Spacer(Modifier.height(40.dp))
         Button(
@@ -244,35 +242,27 @@ private fun PremiumSelectableChip(label: String, selected: Boolean, onClick: () 
 }
 
 @Composable
-private fun ShiftPatternSection(currentPattern: ShiftPattern, onSaveShiftPattern: (ShiftPattern) -> Unit) {
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("출퇴근 패턴 선택", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.height(16.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ShiftPattern.entries.forEach { pattern ->
-                val selected = currentPattern == pattern
-                Surface(
-                    onClick = { onSaveShiftPattern(pattern) },
-                    modifier = Modifier.weight(1f).height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            pattern.displayName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (selected) FontWeight.Black else FontWeight.Medium,
-                            color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+private fun PtStatusCard(ptStatus: Boolean, onSavePtStatus: (Boolean) -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("PT 근무 적용", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("해당 편성표의 PT 규칙을 적용합니다.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
+            Switch(
+                checked = ptStatus,
+                onCheckedChange = onSavePtStatus,
+                colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
+            )
         }
     }
 }

@@ -57,6 +57,42 @@ fun DutyPlanEditorDialog(
 
     BackHandler(onBack = handleBack)
 
+    var showTableSettings by remember { mutableStateOf(false) }
+
+    if (showTableSettings) {
+        val currentTable = editedTables.find { it.displayName == selectedTableName }
+        if (currentTable != null) {
+            var tempPtEffect by remember { mutableStateOf(currentTable.ptEffect) }
+            AlertDialog(
+                onDismissRequest = { showTableSettings = false },
+                title = { Text("편성표 설정", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text("PT 규칙", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            PtEffect.entries.forEach { effect ->
+                                val label = if (effect == PtEffect.EARLY_FINISH) "빨리 퇴근" else "늦게 출근"
+                                FilterChip(
+                                    selected = tempPtEffect == effect,
+                                    onClick = { tempPtEffect = effect },
+                                    label = { Text(label) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        editedTables = editedTables.map { if (it.displayName == selectedTableName) it.copy(ptEffect = tempPtEffect) else it }
+                        showTableSettings = false
+                    }) { Text("적용") }
+                },
+                dismissButton = { TextButton(onClick = { showTableSettings = false }) { Text("취소") } }
+            )
+        }
+    }
+
     if (showExitConfirm) {
         AlertDialog(
             onDismissRequest = { showExitConfirm = false },
@@ -115,6 +151,7 @@ fun DutyPlanEditorDialog(
     if (showAddTableDialog) {
         var newName by remember { mutableStateOf("") }
         var newCapacity by remember { mutableIntStateOf(3) }
+        var newPtEffect by remember { mutableStateOf(PtEffect.EARLY_FINISH) }
         AlertDialog(
             onDismissRequest = { showAddTableDialog = false },
             title = { Text("새 편성표 추가", fontWeight = FontWeight.Bold) },
@@ -124,13 +161,26 @@ fun DutyPlanEditorDialog(
                     Spacer(Modifier.height(16.dp))
                     Text("인원수: $newCapacity", style = MaterialTheme.typography.bodyMedium)
                     Slider(value = newCapacity.toFloat(), onValueChange = { newCapacity = it.toInt() }, valueRange = 1f..4f, steps = 2)
+                    Spacer(Modifier.height(16.dp))
+                    Text("PT 규칙 선택", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PtEffect.entries.forEach { effect ->
+                            val label = if (effect == PtEffect.EARLY_FINISH) "빨리 퇴근" else "늦게 출근"
+                            FilterChip(
+                                selected = newPtEffect == effect,
+                                onClick = { newPtEffect = effect },
+                                label = { Text(label) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = { 
                 Button(
                     enabled = newName.isNotBlank() && editedTables.none { it.displayName == newName },
                     onClick = {
-                        val newTable = DutyTable(newName, newCapacity, listOf(DutySlot("09:00", "10:00", List(newCapacity) { LocationType.Off })))
+                        val newTable = DutyTable(newName, newCapacity, newPtEffect, listOf(DutySlot("09:00", "10:00", List(newCapacity) { LocationType.Off })))
                         editedTables = editedTables + newTable
                         selectedTableName = newName
                         showAddTableDialog = false
@@ -156,6 +206,7 @@ fun DutyPlanEditorDialog(
                         var showMenu by remember { mutableStateOf(false) }
                         IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.Settings, "설정") }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(text = { Text("현재 편성표 설정") }, onClick = { showMenu = false; showTableSettings = true }, leadingIcon = { Icon(Icons.Default.SettingsSuggest, null) })
                             DropdownMenuItem(text = { Text("새 편성표 추가") }, onClick = { showMenu = false; showAddTableDialog = true }, leadingIcon = { Icon(Icons.Default.Add, null) })
                             if (selectedTableName.isNotEmpty()) {
                                 DropdownMenuItem(text = { Text("현재 편성표 삭제", color = MaterialTheme.colorScheme.error) }, onClick = { showMenu = false; showDeleteConfirm = true }, leadingIcon = { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error) })

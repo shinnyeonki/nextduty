@@ -2,9 +2,9 @@ package com.shinnk.nextduty.ui
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,26 +26,53 @@ fun AppSettingsDialog(
         onDismissRequest = onDismiss,
         title = { Text("알림 설정", fontWeight = FontWeight.Bold) },
         text = {
-            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                Text("알람 미리 알림 설정", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(8.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "근무 교대 ${leadTime}분 전 알림",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 
-                val options = listOf(10, 9, 8, 7, 6, 5, 4)
-                options.forEach { minutes ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onLeadTimeChange(minutes) }
-                            .padding(vertical = 4.dp)
-                    ) {
-                        RadioButton(selected = leadTime == minutes, onClick = { onLeadTimeChange(minutes) })
-                        Text("${minutes}분 전", modifier = Modifier.padding(start = 8.dp))
-                    }
+                Spacer(Modifier.height(32.dp))
+                
+                Slider(
+                    value = leadTime.toFloat(),
+                    onValueChange = { onLeadTimeChange(it.toInt()) },
+                    valueRange = 1f..15f,
+                    steps = 13,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("1분", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    Text("15분", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 }
+                
+                Spacer(Modifier.height(16.dp))
+                
+                Text(
+                    "슬라이더를 조절하여 미리 알림 시간을 설정하세요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
             }
         },
-        confirmButton = { Button(onClick = onDismiss) { Text("닫기") } }
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("설정 완료", fontWeight = FontWeight.Bold)
+            }
+        }
     )
 }
 

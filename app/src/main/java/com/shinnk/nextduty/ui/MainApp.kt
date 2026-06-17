@@ -28,13 +28,12 @@ import kotlinx.coroutines.launch
 fun MainApp(
     dutySettings: DutySettings?,
     allTables: List<DutyTable>,
-    shiftPattern: ShiftPattern,
+    isPt: Boolean,
     isAppActive: Boolean,
     workScheduleImages: List<String>,
     dutyTableImages: List<String>,
     alarmLeadTime: Int,
-    onSaveSettings: (String, Int) -> Unit,
-    onSaveShiftPattern: (ShiftPattern) -> Unit,
+    onSaveSettings: (String, Int, Boolean) -> Unit,
     onSaveAppActiveStatus: (Boolean) -> Unit,
     onSaveWorkScheduleImages: (List<String>) -> Unit,
     onSaveDutyTableImages: (List<String>) -> Unit,
@@ -110,13 +109,12 @@ fun MainApp(
                         0 -> HomeFeature(
                             dutySettings = dutySettings, 
                             allTables = allTables, 
-                            shiftPattern = shiftPattern, 
+                            isPt = isPt, 
                             isEditing = isEditing,
-                            onSaveSettings = { tableName, number ->
-                                onSaveSettings(tableName, number)
+                            onSaveSettings = { tableName, number, pt ->
+                                onSaveSettings(tableName, number, pt)
                                 isEditing = false
                             }, 
-                            onSaveShiftPattern = onSaveShiftPattern,
                             onEdit = {
                                 isEditing = true
                                 onEdit()

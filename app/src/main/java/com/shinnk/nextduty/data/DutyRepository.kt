@@ -17,7 +17,7 @@ class DutyRepository(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
 
     companion object {
-        private val PT_TYPE = stringPreferencesKey("pt_type")
+        private val IS_PT = booleanPreferencesKey("is_pt")
         private val DUTY_TABLE_NAME = stringPreferencesKey("duty_table_name")
         private val DUTY_NUMBER = intPreferencesKey("duty_number")
         private val LAST_SAVED_DATE = stringPreferencesKey("last_saved_date")
@@ -36,7 +36,7 @@ class DutyRepository(private val context: Context) {
     }
 
     private val defaultTables = listOf(
-        DutyTable("주1-1", 3, listOf(
+        DutyTable("주1-1", 3, PtEffect.EARLY_FINISH, listOf(
             DutySlot("08:00", "09:00", listOf("대형버스주차장", "2층로비", "1층로비").map { it.toLoc() }),
             DutySlot("09:00", "10:00", listOf("제1버스주차장/나래울입구", "1층로비", "대형버스주차장").map { it.toLoc() }),
             DutySlot("10:00", "11:00", listOf("1층로비", "대형버스주차장", "제1버스주차장/나래울입구").map { it.toLoc() }),
@@ -47,7 +47,7 @@ class DutyRepository(private val context: Context) {
             DutySlot("15:00", "16:00", listOf("식당앞 E/S", "어체앞 E/S", "제1버스주차장/나래울입구").map { it.toLoc() }),
             DutySlot("16:00", "17:00", listOf("제1버스주차장/나래울입구", "식당앞 E/S", "어체앞 E/S").map { it.toLoc() })
         )),
-        DutyTable("주1-2", 3, listOf(
+        DutyTable("주1-2", 3, PtEffect.EARLY_FINISH, listOf(
             DutySlot("08:00", "09:00", listOf("나래울입구(초소)", "2층로비", "1층로비").map { it.toLoc() }),
             DutySlot("09:00", "10:00", listOf("2층로비", "1층로비", "나래울입구(초소)").map { it.toLoc() }),
             DutySlot("10:00", "11:00", listOf("1층로비", "나래울입구(초소)", "2층로비").map { it.toLoc() }),
@@ -58,7 +58,7 @@ class DutyRepository(private val context: Context) {
             DutySlot("15:00", "16:00", listOf("식당앞 E/S", "어체앞 E/S", "순찰(본관/숙련관)").map { it.toLoc() }),
             DutySlot("16:00", "17:00", listOf("순찰(본관/숙련관)", "식당앞 E/S", "어체앞 E/S").map { it.toLoc() })
         )),
-        DutyTable("주1-3", 3, listOf(
+        DutyTable("주1-3", 3, PtEffect.EARLY_FINISH, listOf(
             DutySlot("08:00", "09:00", listOf("나래울입구(초소)", "2층로비", "1층로비").map { it.toLoc() }),
             DutySlot("09:00", "10:00", listOf("2층로비", "1층로비", "나래울입구(초소)").map { it.toLoc() }),
             DutySlot("10:00", "11:00", listOf("1층로비", "나래울입구(초소)", "2층로비").map { it.toLoc() }),
@@ -69,7 +69,7 @@ class DutyRepository(private val context: Context) {
             DutySlot("15:00", "16:00", listOf("나래울입구(초소)", "식당앞 E/S", "어체앞 E/S").map { it.toLoc() }),
             DutySlot("16:00", "17:00", listOf("어체앞 E/S", "나래울입구(초소)", "식당앞 E/S").map { it.toLoc() })
         )),
-        DutyTable("주1-4", 4, listOf(
+        DutyTable("주1-4", 4, PtEffect.EARLY_FINISH, listOf(
             DutySlot("08:00", "09:00", listOf("대형버스주차장", "제1버스주차장/나래울입구", "2층로비", "1층로비").map { it.toLoc() }),
             DutySlot("09:00", "10:00", listOf("제1버스주차장/나래울입구", "2층로비", "1층로비", "대형버스주차장").map { it.toLoc() }),
             DutySlot("10:00", "11:00", listOf("2층로비", "1층로비", "대형버스주차장", "제1버스주차장/나래울입구").map { it.toLoc() }),
@@ -80,7 +80,7 @@ class DutyRepository(private val context: Context) {
             DutySlot("15:00", "16:00", listOf("어체앞 E/S", "식당앞 E/S", "순찰(본관/숙련관)", "제1버스주차장/나래울입구").map { it.toLoc() }),
             DutySlot("16:00", "17:00", listOf("식당앞 E/S", "순찰(본관/숙련관)", "제1버스주차장/나래울입구", "어체앞 E/S").map { it.toLoc() })
         )),
-        DutyTable("주2-1", 3, listOf(
+        DutyTable("주2-1", 3, PtEffect.LATE_START, listOf(
             DutySlot("11:00", "12:00", listOf("대형버스주차장", "2층로비", "1층로비").map { it.toLoc() }),
             DutySlot("12:00", "12:40", listOf("2층로비", "1층로비", "대형버스주차장").map { it.toLoc() }),
             DutySlot("12:40", "14:00", listOf("점심시간", "점심시간", "점심시간").map { it.toLoc() }),
@@ -91,7 +91,7 @@ class DutyRepository(private val context: Context) {
             DutySlot("18:00", "19:00", listOf("2층로비", "근무없음", "1층로비").map { it.toLoc() }),
             DutySlot("19:00", "20:00", listOf("1층로비", "근무없음", "2층로비").map { it.toLoc() })
         )),
-        DutyTable("주2-2", 3, listOf(
+        DutyTable("주2-2", 3, PtEffect.LATE_START, listOf(
             DutySlot("11:00", "12:00", listOf("나래울입구(초소)", "2층로비", "1층로비").map { it.toLoc() }),
             DutySlot("12:00", "12:40", listOf("2층로비", "1층로비", "나래울입구(초소)").map { it.toLoc() }),
             DutySlot("12:40", "14:00", listOf("점심시간", "점심시간", "점심시간").map { it.toLoc() }),
@@ -102,7 +102,7 @@ class DutyRepository(private val context: Context) {
             DutySlot("18:00", "19:00", listOf("2층로비", "근무없음", "1층로비").map { it.toLoc() }),
             DutySlot("19:00", "20:00", listOf("1층로비", "근무없음", "2층로비").map { it.toLoc() })
         )),
-        DutyTable("주2-3", 2, listOf(
+        DutyTable("주2-3", 2, PtEffect.LATE_START, listOf(
             DutySlot("11:00", "12:00", listOf("2층로비", "1층로비").map { it.toLoc() }),
             DutySlot("12:00", "12:40", listOf("1층로비", "2층로비").map { it.toLoc() }),
             DutySlot("12:40", "14:00", listOf("점심시간", "점심시간").map { it.toLoc() }),
@@ -129,16 +129,12 @@ class DutyRepository(private val context: Context) {
         if (lastDate == LocalDate.now().toString()) {
             val tableName = preferences[DUTY_TABLE_NAME] ?: return@map null
             val number = preferences[DUTY_NUMBER] ?: return@map null
-            val ptTypeName = preferences[PT_TYPE] ?: ShiftPattern.NONE.name
-            val shiftPattern = try { ShiftPattern.valueOf(ptTypeName) } catch(e: Exception) { ShiftPattern.NONE }
-            DutySettings(tableName, number, shiftPattern)
+            val isPt = preferences[IS_PT] ?: false
+            DutySettings(tableName, number, isPt)
         } else null
     }
 
-    val shiftPattern: Flow<ShiftPattern> = context.dataStore.data.map { 
-        val name = it[PT_TYPE] ?: ShiftPattern.NONE.name
-        try { ShiftPattern.valueOf(name) } catch(e: Exception) { ShiftPattern.NONE }
-    }
+    val isPt: Flow<Boolean> = context.dataStore.data.map { it[IS_PT] ?: false }
     val isAppActive: Flow<Boolean> = context.dataStore.data.map { it[IS_APP_ACTIVE] ?: true }
     val alarmLeadTime: Flow<Int> = context.dataStore.data.map { it[ALARM_LEAD_TIME] ?: 5 }
 
@@ -154,14 +150,14 @@ class DutyRepository(private val context: Context) {
     }
 
     // --- 저장 함수 ---
-    suspend fun saveDutySettings(tableName: String, number: Int, shiftPattern: ShiftPattern) {
+    suspend fun saveDutySettings(tableName: String, number: Int, isPt: Boolean) {
         context.dataStore.edit {
             it[DUTY_TABLE_NAME] = tableName; it[DUTY_NUMBER] = number
-            it[PT_TYPE] = shiftPattern.name; it[LAST_SAVED_DATE] = LocalDate.now().toString()
+            it[IS_PT] = isPt; it[LAST_SAVED_DATE] = LocalDate.now().toString()
         }
     }
 
-    suspend fun saveShiftPattern(shiftPattern: ShiftPattern) = context.dataStore.edit { it[PT_TYPE] = shiftPattern.name }
+    suspend fun savePtStatus(isPt: Boolean) = context.dataStore.edit { it[IS_PT] = isPt }
     suspend fun saveAppActiveStatus(isActive: Boolean) = context.dataStore.edit { it[IS_APP_ACTIVE] = isActive }
     suspend fun saveAlarmLeadTime(minutes: Int) = context.dataStore.edit { it[ALARM_LEAD_TIME] = minutes }
     suspend fun saveCustomDutyTables(tables: List<DutyTable>?) = context.dataStore.edit { 

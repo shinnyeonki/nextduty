@@ -119,7 +119,7 @@ private fun StatusScreen(settings: DutySettings, table: DutyTable, onEdit: () ->
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
                 "남은 시간", 

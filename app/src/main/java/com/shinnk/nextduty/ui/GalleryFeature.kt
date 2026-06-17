@@ -28,6 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.io.File
 import coil.compose.AsyncImage
 import com.shinnk.nextduty.system.ImageStorage
 
@@ -40,6 +41,10 @@ fun GalleryFeature(
     val pagerState = rememberPagerState(pageCount = { images.size })
     var isZoomed by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(pagerState.currentPage) {
+        isZoomed = false
+    }
     
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->
         if (uris.isNotEmpty()) {
@@ -85,13 +90,12 @@ fun GalleryFeature(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
                 pageSpacing = 16.dp,
-                userScrollEnabled = !isZoomed
+                userScrollEnabled = !isZoomed,
+                beyondViewportPageCount = 1
             ) { page ->
                 val path = images[page]
                 ZoomableAsyncImage(
-                    model = if (path.startsWith("res:")) {
-                        context.resources.getIdentifier(path.replace("res:", ""), "drawable", context.packageName)
-                    } else path,
+                    model = path,
                     onZoomChanged = { isZoomed = it }
                 )
             }
@@ -146,14 +150,30 @@ fun GalleryFeature(
 }
 
 @Composable
-fun ZoomableAsyncImage(model: Any, onZoomChanged: (Boolean) -> Unit) {
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
+fun ZoomableAsyncImage(model: String, onZoomChanged: (Boolean) -> Unit) {
+    val context = LocalContext.current
+    var scale by remember(model) { mutableFloatStateOf(1f) }
+    var offset by remember(model) { mutableStateOf(Offset.Zero) }
+
+    val imageModel = remember(model, context) {
+        if (model.startsWith("res:")) {
+            val resName = model.substringAfter("res:")
+            var resId = context.resources.getIdentifier(resName, "drawable", context.packageName)
+            if (resId == 0) {
+                // Fallback for debug build suffixes (e.g. .debug)
+                resId = context.resources.getIdentifier(resName, "drawable", "com.shinnk.nextduty")
+            }
+            if (resId != 0) resId else "android.resource://${context.packageName}/drawable/$resName"
+        } else {
+            val file = File(model)
+            if (file.exists()) file else null
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
+            .pointerInput(model) {
                 awaitEachGesture {
                     awaitFirstDown()
                     do {
@@ -175,7 +195,7 @@ fun ZoomableAsyncImage(model: Any, onZoomChanged: (Boolean) -> Unit) {
             }
     ) {
         AsyncImage(
-            model = model,
+            model = imageModel,
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
@@ -187,5 +207,13 @@ fun ZoomableAsyncImage(model: Any, onZoomChanged: (Boolean) -> Unit) {
                 ),
             contentScale = ContentScale.Fit
         )
+        
+        if (imageModel == null) {
+            Text(
+                "이미지를 불러올 수 없습니다.",
+                modifier = Modifier.align(Alignment.Center),
+                color = Color.White.copy(alpha = 0.5f)
+            )
+        }
     }
 }

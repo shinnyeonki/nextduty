@@ -140,13 +140,13 @@ class DutyRepository(private val context: Context) {
 
     val workScheduleImages: Flow<List<String>> = context.dataStore.data.map { preferences ->
         val serialized = preferences[WORK_SCHEDULE_IMAGES] ?: ""
-        serialized.split("|").filter { it.isNotEmpty() && (it.startsWith("res:") || File(it).exists() || File(context.filesDir, it).exists()) }
+        serialized.split("|").filter { it.isNotEmpty() && (it.startsWith("res:") || File(it).exists()) }
     }
 
     val dutyTableImages: Flow<List<String>> = context.dataStore.data.map { preferences ->
         val serialized = preferences[DUTY_TABLE_IMAGES] ?: ""
         if (serialized.isEmpty()) listOf("res:duty_ju1_12", "res:duty_ju1_34", "res:duty_ju2_1", "res:duty_ju2_23")
-        else serialized.split("|").filter { it.isNotEmpty() && (it.startsWith("res:") || File(it).exists() || File(context.filesDir, it).exists()) }
+        else serialized.split("|").filter { it.isNotEmpty() && (it.startsWith("res:") || File(it).exists()) }
     }
 
     // --- 저장 함수 ---

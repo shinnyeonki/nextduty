@@ -6,25 +6,23 @@ import java.util.Locale
 
 object DutyCalculator {
 
-    fun getShiftTimes(tableName: String, isPt: Boolean): Pair<LocalTime, LocalTime> {
-        val isJu1 = tableName.contains("주1")
-        val isJu2 = tableName.contains("주2")
-        
-        val start = if (isPt && isJu2) LocalTime.of(11, 30) 
-                    else if (isJu1) LocalTime.of(8, 0) 
-                    else LocalTime.of(11, 0)
-        
-        val end = if (isPt && isJu1) LocalTime.of(16, 30) 
-                  else if (isJu1) LocalTime.of(17, 0) 
-                  else LocalTime.of(20, 0)
+    fun getShiftTimes(table: DutyTable, shiftPattern: ShiftPattern): Pair<LocalTime, LocalTime> {
+        if (table.slots.isEmpty()) return LocalTime.of(0, 0) to LocalTime.of(0, 0)
+
+        var start = table.slots.minOf { LocalTime.parse(it.startTime) }
+        var end = table.slots.maxOf { LocalTime.parse(it.endTime) }
+
+        when (shiftPattern) {
+            ShiftPattern.LATE_START -> start = start.plusMinutes(30)
+            ShiftPattern.EARLY_FINISH -> end = end.minusMinutes(30)
+            ShiftPattern.NONE -> {}
+        }
         
         return start to end
     }
 
-    fun getProcessedSlots(table: DutyTable, number: Int, isPt: Boolean): List<ProcessedSlot> {
-        val (shiftStart, shiftEnd) = getShiftTimes(table.displayName, isPt)
-        val isJu1 = table.displayName.contains("주1")
-        val isJu2 = table.displayName.contains("주2")
+    fun getProcessedSlots(table: DutyTable, number: Int, shiftPattern: ShiftPattern): List<ProcessedSlot> {
+        val (shiftStart, shiftEnd) = getShiftTimes(table, shiftPattern)
 
         return table.slots.mapNotNull { slot ->
             val locationType = slot.locations.getOrNull(number - 1) ?: LocationType.Off
@@ -37,16 +35,17 @@ object DutyCalculator {
             var finalEnd = originalEnd
             var displayStart = slot.startTime
 
-            if (isPt) {
-                if (isJu1 && !originalStart.isBefore(shiftEnd)) return@mapNotNull null
-                if (isJu2 && slot.startTime == "11:00") {
+            // 패턴 처리: 근무 시간이 시프트 범위 내에 있도록 조정
+            if (shiftPattern != ShiftPattern.NONE) {
+                // 시작 시간이 시프트 시작 전이면 시프트 시작으로 조정
+                if (finalStart.isBefore(shiftStart)) {
                     finalStart = shiftStart
-                    displayStart = "11:30"
+                    displayStart = shiftStart.toString()
                 }
-            }
-
-            if (isJu2 && number == 2 && slot.startTime == "17:00") {
-                finalEnd = LocalTime.of(17, 30)
+                // 종료 시간이 시프트 종료 후이면 시프트 종료로 조정
+                if (finalEnd.isAfter(shiftEnd)) {
+                    finalEnd = shiftEnd
+                }
             }
 
             if (!finalStart.isBefore(finalEnd) || !finalStart.isBefore(shiftEnd)) return@mapNotNull null
@@ -56,8 +55,8 @@ object DutyCalculator {
     }
 
     fun calculateDutyInfo(currentTime: LocalTime, table: DutyTable, settings: DutySettings): DutyInfo {
-        val processedSlots = getProcessedSlots(table, settings.number, settings.isPt)
-        val (shiftStart, shiftEnd) = getShiftTimes(settings.tableName, settings.isPt)
+        val processedSlots = getProcessedSlots(table, settings.number, settings.shiftPattern)
+        val (shiftStart, shiftEnd) = getShiftTimes(table, settings.shiftPattern)
 
         val (currLoc, currRange) = when {
             currentTime.isBefore(shiftStart) -> "출근 전" to "시작 예정: $shiftStart"
@@ -82,8 +81,8 @@ object DutyCalculator {
         return DutyInfo(currLoc, currRange, nLoc, nStart, remaining)
     }
 
-    fun getAlarmSchedules(table: DutyTable, number: Int, isPt: Boolean, leadTime: Int = 5): List<DutyAlarm> {
-        val slots = getProcessedSlots(table, number, isPt)
+    fun getAlarmSchedules(table: DutyTable, number: Int, shiftPattern: ShiftPattern, leadTime: Int = 5): List<DutyAlarm> {
+        val slots = getProcessedSlots(table, number, shiftPattern)
         if (slots.isEmpty()) return emptyList()
 
         val alarms = mutableListOf<DutyAlarm>()

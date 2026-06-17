@@ -14,6 +14,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import com.shinnk.nextduty.data.DutyCalculator
 import com.shinnk.nextduty.data.DutyTable
+import com.shinnk.nextduty.data.ShiftPattern
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -24,9 +25,9 @@ class AlarmProvider(private val context: Context) {
         private var ringtone: Ringtone? = null
     }
 
-    fun scheduleAlarms(table: DutyTable, number: Int, isPt: Boolean, leadTime: Int) {
+    fun scheduleAlarms(table: DutyTable, number: Int, shiftPattern: ShiftPattern, leadTime: Int) {
         cancelAllAlarms()
-        val schedules = DutyCalculator.getAlarmSchedules(table, number, isPt, leadTime)
+        val schedules = DutyCalculator.getAlarmSchedules(table, number, shiftPattern, leadTime)
         val now = LocalDateTime.now()
 
         schedules.forEachIndexed { index, alarm ->

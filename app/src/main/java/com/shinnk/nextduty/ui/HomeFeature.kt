@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shinnk.nextduty.data.*
@@ -26,19 +27,19 @@ import java.time.LocalTime
 fun HomeFeature(
     dutySettings: DutySettings?,
     allTables: List<DutyTable>,
-    ptStatus: Boolean,
+    shiftPattern: ShiftPattern,
     isEditing: Boolean,
     onSaveSettings: (String, Int) -> Unit,
-    onSavePtStatus: (Boolean) -> Unit,
+    onSaveShiftPattern: (ShiftPattern) -> Unit,
     onEdit: () -> Unit
 ) {
     if (isEditing || dutySettings == null) {
         InputScreen(
             initialSettings = dutySettings,
             allTables = allTables,
-            ptStatus = ptStatus,
+            shiftPattern = shiftPattern,
             onSave = onSaveSettings,
-            onSavePtStatus = onSavePtStatus
+            onSaveShiftPattern = onSaveShiftPattern
         )
     } else {
         val currentTable = allTables.find { it.displayName == dutySettings.tableName } ?: allTables.first()
@@ -137,9 +138,9 @@ private fun StatusScreen(settings: DutySettings, table: DutyTable, onEdit: () ->
 private fun InputScreen(
     initialSettings: DutySettings?,
     allTables: List<DutyTable>,
-    ptStatus: Boolean,
+    shiftPattern: ShiftPattern,
     onSave: (String, Int) -> Unit,
-    onSavePtStatus: (Boolean) -> Unit
+    onSaveShiftPattern: (ShiftPattern) -> Unit
 ) {
     val initialTableName = initialSettings?.tableName ?: "주1-1"
     var selectedTable by remember { mutableStateOf(allTables.find { it.displayName == initialTableName } ?: allTables.first()) }
@@ -202,7 +203,7 @@ private fun InputScreen(
         }
 
         Spacer(Modifier.height(32.dp))
-        PtStatusCard(ptStatus, onSavePtStatus)
+        ShiftPatternSection(shiftPattern, onSaveShiftPattern)
         
         Spacer(Modifier.height(40.dp))
         Button(
@@ -243,14 +244,35 @@ private fun PremiumSelectableChip(label: String, selected: Boolean, onClick: () 
 }
 
 @Composable
-private fun PtStatusCard(ptStatus: Boolean, onSavePtStatus: (Boolean) -> Unit) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f), shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))) {
-        Row(modifier = Modifier.padding(20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("PT 근무 적용", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("PT 시간으로 보정합니다.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+private fun ShiftPatternSection(currentPattern: ShiftPattern, onSaveShiftPattern: (ShiftPattern) -> Unit) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("출퇴근 패턴 선택", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ShiftPattern.entries.forEach { pattern ->
+                val selected = currentPattern == pattern
+                Surface(
+                    onClick = { onSaveShiftPattern(pattern) },
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            pattern.displayName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (selected) FontWeight.Black else FontWeight.Medium,
+                            color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
-            Switch(checked = ptStatus, onCheckedChange = onSavePtStatus, colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary))
         }
     }
 }

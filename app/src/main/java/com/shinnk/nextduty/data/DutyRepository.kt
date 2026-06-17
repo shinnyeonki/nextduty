@@ -17,7 +17,7 @@ class DutyRepository(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
 
     companion object {
-        private val PT_STATUS = booleanPreferencesKey("pt_status")
+        private val PT_TYPE = stringPreferencesKey("pt_type")
         private val DUTY_TABLE_NAME = stringPreferencesKey("duty_table_name")
         private val DUTY_NUMBER = intPreferencesKey("duty_number")
         private val LAST_SAVED_DATE = stringPreferencesKey("last_saved_date")
@@ -129,12 +129,16 @@ class DutyRepository(private val context: Context) {
         if (lastDate == LocalDate.now().toString()) {
             val tableName = preferences[DUTY_TABLE_NAME] ?: return@map null
             val number = preferences[DUTY_NUMBER] ?: return@map null
-            val isPt = preferences[PT_STATUS] ?: false
-            DutySettings(tableName, number, isPt)
+            val ptTypeName = preferences[PT_TYPE] ?: ShiftPattern.NONE.name
+            val shiftPattern = try { ShiftPattern.valueOf(ptTypeName) } catch(e: Exception) { ShiftPattern.NONE }
+            DutySettings(tableName, number, shiftPattern)
         } else null
     }
 
-    val ptStatus: Flow<Boolean> = context.dataStore.data.map { it[PT_STATUS] ?: false }
+    val shiftPattern: Flow<ShiftPattern> = context.dataStore.data.map { 
+        val name = it[PT_TYPE] ?: ShiftPattern.NONE.name
+        try { ShiftPattern.valueOf(name) } catch(e: Exception) { ShiftPattern.NONE }
+    }
     val isAppActive: Flow<Boolean> = context.dataStore.data.map { it[IS_APP_ACTIVE] ?: true }
     val alarmLeadTime: Flow<Int> = context.dataStore.data.map { it[ALARM_LEAD_TIME] ?: 5 }
 
@@ -150,14 +154,14 @@ class DutyRepository(private val context: Context) {
     }
 
     // --- 저장 함수 ---
-    suspend fun saveDutySettings(tableName: String, number: Int, isPt: Boolean) {
+    suspend fun saveDutySettings(tableName: String, number: Int, shiftPattern: ShiftPattern) {
         context.dataStore.edit {
             it[DUTY_TABLE_NAME] = tableName; it[DUTY_NUMBER] = number
-            it[PT_STATUS] = isPt; it[LAST_SAVED_DATE] = LocalDate.now().toString()
+            it[PT_TYPE] = shiftPattern.name; it[LAST_SAVED_DATE] = LocalDate.now().toString()
         }
     }
 
-    suspend fun savePtStatus(status: Boolean) = context.dataStore.edit { it[PT_STATUS] = status }
+    suspend fun saveShiftPattern(shiftPattern: ShiftPattern) = context.dataStore.edit { it[PT_TYPE] = shiftPattern.name }
     suspend fun saveAppActiveStatus(isActive: Boolean) = context.dataStore.edit { it[IS_APP_ACTIVE] = isActive }
     suspend fun saveAlarmLeadTime(minutes: Int) = context.dataStore.edit { it[ALARM_LEAD_TIME] = minutes }
     suspend fun saveCustomDutyTables(tables: List<DutyTable>?) = context.dataStore.edit { 

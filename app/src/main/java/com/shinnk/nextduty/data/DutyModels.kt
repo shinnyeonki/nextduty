@@ -32,10 +32,17 @@ data class DutyTable(
     val slots: List<DutySlot>
 )
 
+@Serializable
+enum class ShiftPattern(val displayName: String) {
+    @SerialName("none") NONE("정상 출퇴근"),
+    @SerialName("late_start") LATE_START("+30m 출근"),
+    @SerialName("early_finish") EARLY_FINISH("-30m 퇴근")
+}
+
 data class DutySettings(
     val tableName: String, // e.g., "주1-1"
     val number: Int,
-    val isPt: Boolean
+    val shiftPattern: ShiftPattern
 )
 
 data class DutyInfo(

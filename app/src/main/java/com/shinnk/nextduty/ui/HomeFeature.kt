@@ -80,14 +80,22 @@ private fun StatusScreen(settings: DutySettings, table: DutyTable, onEdit: () ->
             shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text("현재 위치", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Text(info.currentLoc, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Black)
-                Text(info.currentRange, style = MaterialTheme.typography.bodyLarge)
+            Column(modifier = Modifier.padding(28.dp)) {
+                Text("현재 위치", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = info.currentLoc, 
+                    style = MaterialTheme.typography.displayMedium, 
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    lineHeight = 52.sp
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(info.currentRange, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
 
         // 2. 다음 근무 카드 (크게)
         Surface(
@@ -96,10 +104,17 @@ private fun StatusScreen(settings: DutySettings, table: DutyTable, onEdit: () ->
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text("다음 근무", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
-                Text(info.nextLoc, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
-                Text(info.nextStart, style = MaterialTheme.typography.bodyMedium)
+            Column(modifier = Modifier.padding(28.dp)) {
+                Text("다음 근무", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.secondary)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = info.nextLoc, 
+                    style = MaterialTheme.typography.headlineLarge.copy(fontSize = 36.sp), 
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(info.nextStart, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
             }
         }
 

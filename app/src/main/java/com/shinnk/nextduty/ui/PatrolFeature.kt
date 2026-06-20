@@ -1,16 +1,15 @@
 package com.shinnk.nextduty.ui
 
 import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -25,16 +24,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import kotlinx.coroutines.withTimeoutOrNull
 
 val PATROL_POINTS = listOf(
     "본인 사물함", "1층 사무존 남자 화장실", "2층 진로설계관內 여자 화장실", "숙련관 동측 1층 비상계단 앞",
@@ -122,7 +118,7 @@ fun PatrolDialog(onDismiss: () -> Unit) {
                             }
                             if (!isEditMode) {
                                 LinearProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().height(12.dp).clip(CircleShape), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
-                                Text(text = "${checkedIndices.size}개 지점 완료 / 총 ${patrolPoints.size}개 | 2초간 꾹 눌러서 체크", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                                Text(text = "${checkedIndices.size}개 지점 완료 / 총 ${patrolPoints.size}개 | 1초 이상 꾹 눌러서 체크", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                             } else Text(text = "지점을 추가하거나 수정, 삭제할 수 있습니다.", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                         }
                     }
@@ -181,29 +177,60 @@ private fun PatrolItem(
     onDelete: () -> Unit = {}
 ) {
     val backgroundColor by animateColorAsState(if (isChecked && !isEditMode) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else Color.White, label = "bgColor")
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val vibrator = remember {
+        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+        vibratorManager.defaultVibrator
+    }
+    
+    var isPressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(if (isPressed) 0.96f else 1f, label = "scale")
+    
+    var holdProgress by remember { mutableFloatStateOf(0f) }
+    val animatedProgress by animateFloatAsState(
+        targetValue = holdProgress,
+        animationSpec = if (holdProgress == 0f) snap() else tween(1000, easing = LinearEasing),
+        label = "holdProgress"
+    )
+
+    LaunchedEffect(isPressed) {
+        if (isPressed) {
+            while (isPressed) {
+                vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+                kotlinx.coroutines.delay(100)
+            }
+        }
+    }
+
+    LaunchedEffect(animatedProgress) {
+        if (animatedProgress >= 1f && isPressed) {
+            vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+            onLongClick()
+            isPressed = false
+            holdProgress = 0f
+        }
+    }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .scale(scale)
             .pointerInput(isChecked, isEditMode) {
                 if (isEditMode) {
                     detectTapGestures(onTap = { onClick() })
                 } else {
-                    awaitEachGesture {
-                        awaitFirstDown(requireUnconsumed = false)
-                        val held = withTimeoutOrNull(2000) {
-                            waitForUpOrCancellation()
-                            false // Released before timeout
-                        } ?: true // Timed out (held for 2s)
-
-                        if (held) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onLongClick()
-                            // Consume the up event to prevent other interactions
-                            waitForUpOrCancellation()
+                    detectTapGestures(
+                        onPress = {
+                            isPressed = true
+                            holdProgress = 1f
+                            try {
+                                awaitRelease()
+                            } finally {
+                                isPressed = false
+                                holdProgress = 0f
+                            }
                         }
-                    }
+                    )
                 }
             }, 
         shape = RoundedCornerShape(24.dp), 
@@ -211,28 +238,49 @@ private fun PatrolItem(
         border = if (isChecked && !isEditMode) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) else null,
         shadowElevation = if (isChecked && !isEditMode) 0.dp else 6.dp
     ) {
-        Row(modifier = Modifier.padding(horizontal = 24.dp, vertical = if (isEditMode) 20.dp else 28.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = CircleShape, color = if (isChecked && !isEditMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(32.dp)) {
-                Box(contentAlignment = Alignment.Center) { Text(text = index.toString(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = if (isChecked && !isEditMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-            Spacer(Modifier.width(20.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = text, style = MaterialTheme.typography.titleMedium, fontWeight = if (isChecked && !isEditMode) FontWeight.ExtraBold else FontWeight.Bold, color = if (isChecked && !isEditMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, lineHeight = 24.sp)
-                if (isChecked && !isEditMode) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(text = "COMPLETED", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+        Box {
+            // 진행 바 (배경 차오름 효과)
+            if (isPressed && !isEditMode) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(24.dp))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(animatedProgress)
+                            .background(
+                                if (isChecked) MaterialTheme.colorScheme.error.copy(alpha = 0.25f)
+                                else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                            )
+                    )
                 }
             }
-            Spacer(Modifier.width(16.dp))
-            if (isEditMode) {
-                Row {
-                    IconButton(onClick = onClick) { Icon(Icons.Default.Edit, "Edit", tint = Color.Gray.copy(alpha = 0.6f)) }
-                    IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)) }
+
+            Row(modifier = Modifier.padding(horizontal = 24.dp, vertical = if (isEditMode) 20.dp else 28.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = CircleShape, color = if (isChecked && !isEditMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(32.dp)) {
+                    Box(contentAlignment = Alignment.Center) { Text(text = index.toString(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = if (isChecked && !isEditMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
-            } else {
-                Crossfade(targetState = isChecked, label = "icon") { checked ->
-                    if (checked) Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Checked", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
-                    else Box(modifier = Modifier.size(36.dp))
+                Spacer(Modifier.width(20.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = text, style = MaterialTheme.typography.titleMedium, fontWeight = if (isChecked && !isEditMode) FontWeight.ExtraBold else FontWeight.Bold, color = if (isChecked && !isEditMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, lineHeight = 24.sp)
+                    if (isChecked && !isEditMode) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(text = "COMPLETED", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                    }
+                }
+                Spacer(Modifier.width(16.dp))
+                if (isEditMode) {
+                    Row {
+                        IconButton(onClick = onClick) { Icon(Icons.Default.Edit, "Edit", tint = Color.Gray.copy(alpha = 0.6f)) }
+                        IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)) }
+                    }
+                } else {
+                    Crossfade(targetState = isChecked, label = "icon") { checked ->
+                        if (checked) Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Checked", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
+                        else Box(modifier = Modifier.size(36.dp))
+                    }
                 }
             }
         }

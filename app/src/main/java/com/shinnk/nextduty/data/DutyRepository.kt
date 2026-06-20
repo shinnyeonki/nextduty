@@ -26,93 +26,88 @@ class DutyRepository(private val context: Context) {
         private val DUTY_TABLE_IMAGES = stringPreferencesKey("duty_table_images_list")
         private val CUSTOM_DUTY_TABLES = stringPreferencesKey("custom_duty_tables")
         private val ALARM_LEAD_TIME = intPreferencesKey("alarm_lead_time")
-    }
-
-    // --- 기본 데이터 ---
-    private fun String.toLoc(): LocationType = when (this) {
-        "근무없음" -> LocationType.Off
-        "점심시간" -> LocationType.Lunch
-        else -> LocationType.Active(this)
+        private val RECEIVE_FINISH_ALARM = booleanPreferencesKey("receive_finish_alarm")
+        private val FINISH_ALARM_LEAD_TIME = intPreferencesKey("finish_alarm_lead_time")
     }
 
     private val defaultTables = listOf(
         DutyTable("주1-1", 3, PtEffect.EARLY_FINISH, listOf(
-            DutySlot("08:00", "09:00", listOf("대형버스주차장", "2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("09:00", "10:00", listOf("제1버스주차장/나래울입구", "1층로비", "대형버스주차장").map { it.toLoc() }),
-            DutySlot("10:00", "11:00", listOf("1층로비", "대형버스주차장", "제1버스주차장/나래울입구").map { it.toLoc() }),
-            DutySlot("11:00", "11:20", listOf("제1버스주차장/나래울입구", "식당앞 E/S", "어체앞 E/S").map { it.toLoc() }),
-            DutySlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간").map { it.toLoc() }),
-            DutySlot("12:40", "14:00", listOf("1층로비", "대형버스주차장", "2층로비").map { it.toLoc() }),
-            DutySlot("14:00", "15:00", listOf("어체앞 E/S", "제1버스주차장/나래울입구", "식당앞 E/S").map { it.toLoc() }),
-            DutySlot("15:00", "16:00", listOf("식당앞 E/S", "어체앞 E/S", "제1버스주차장/나래울입구").map { it.toLoc() }),
-            DutySlot("16:00", "17:00", listOf("제1버스주차장/나래울입구", "식당앞 E/S", "어체앞 E/S").map { it.toLoc() })
-        )),
+            DutySlot("08:00", "09:00", listOf("대형버스주차장", "2층로비", "1층로비"), listOf(true, true, true)),
+            DutySlot("09:00", "10:00", listOf("제1버스주차장/나래울입구", "1층로비", "대형버스주차장"), listOf(true, true, true)),
+            DutySlot("10:00", "11:00", listOf("1층로비", "대형버스주차장", "제1버스주차장/나래울입구"), listOf(true, true, true)),
+            DutySlot("11:00", "11:20", listOf("제1버스주차장/나래울입구", "식당앞 E/S", "어체앞 E/S"), listOf(true, true, true)),
+            DutySlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간"), listOf(true, true, true)),
+            DutySlot("12:40", "14:00", listOf("1층로비", "대형버스주차장", "2층로비"), listOf(true, true, true)),
+            DutySlot("14:00", "15:00", listOf("어체앞 E/S", "제1버스주차장/나래울입구", "식당앞 E/S"), listOf(true, true, true)),
+            DutySlot("15:00", "16:00", listOf("식당앞 E/S", "어체앞 E/S", "제1버스주차장/나래울입구"), listOf(true, true, true)),
+            DutySlot("16:00", "17:00", listOf("제1버스주차장/나래울입구", "식당앞 E/S", "어체앞 E/S"), listOf(true, true, true))
+        ), alertOnFinish = true),
         DutyTable("주1-2", 3, PtEffect.EARLY_FINISH, listOf(
-            DutySlot("08:00", "09:00", listOf("나래울입구(초소)", "2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("09:00", "10:00", listOf("2층로비", "1층로비", "나래울입구(초소)").map { it.toLoc() }),
-            DutySlot("10:00", "11:00", listOf("1층로비", "나래울입구(초소)", "2층로비").map { it.toLoc() }),
-            DutySlot("11:00", "11:20", listOf("나래울입구(초소)", "어체앞 E/S", "식당앞 E/S").map { it.toLoc() }),
-            DutySlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간").map { it.toLoc() }),
-            DutySlot("12:40", "14:00", listOf("1층로비", "나래울입구(초소)", "2층로비").map { it.toLoc() }),
-            DutySlot("14:00", "15:00", listOf("어체앞 E/S", "순찰(본관/숙련관)", "식당앞 E/S").map { it.toLoc() }),
-            DutySlot("15:00", "16:00", listOf("식당앞 E/S", "어체앞 E/S", "순찰(본관/숙련관)").map { it.toLoc() }),
-            DutySlot("16:00", "17:00", listOf("순찰(본관/숙련관)", "식당앞 E/S", "어체앞 E/S").map { it.toLoc() })
-        )),
+            DutySlot("08:00", "09:00", listOf("나래울입구(초소)", "2층로비", "1층로비"), listOf(true, true, true)),
+            DutySlot("09:00", "10:00", listOf("2층로비", "1층로비", "나래울입구(초소)"), listOf(true, true, true)),
+            DutySlot("10:00", "11:00", listOf("1층로비", "나래울입구(초소)", "2층로비"), listOf(true, true, true)),
+            DutySlot("11:00", "11:20", listOf("나래울입구(초소)", "어체앞 E/S", "식당앞 E/S"), listOf(true, true, true)),
+            DutySlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간"), listOf(true, true, true)),
+            DutySlot("12:40", "14:00", listOf("1층로비", "나래울입구(초소)", "2층로비"), listOf(true, true, true)),
+            DutySlot("14:00", "15:00", listOf("어체앞 E/S", "순찰(본관/숙련관)", "식당앞 E/S"), listOf(true, true, true)),
+            DutySlot("15:00", "16:00", listOf("식당앞 E/S", "어체앞 E/S", "순찰(본관/숙련관)"), listOf(true, true, true)),
+            DutySlot("16:00", "17:00", listOf("순찰(본관/숙련관)", "식당앞 E/S", "어체앞 E/S"), listOf(true, true, true))
+        ), alertOnFinish = true),
         DutyTable("주1-3", 3, PtEffect.EARLY_FINISH, listOf(
-            DutySlot("08:00", "09:00", listOf("나래울입구(초소)", "2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("09:00", "10:00", listOf("2층로비", "1층로비", "나래울입구(초소)").map { it.toLoc() }),
-            DutySlot("10:00", "11:00", listOf("1층로비", "나래울입구(초소)", "2층로비").map { it.toLoc() }),
-            DutySlot("11:00", "11:20", listOf("나래울입구(초소)", "어체앞 E/S", "식당앞 E/S").map { it.toLoc() }),
-            DutySlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간").map { it.toLoc() }),
-            DutySlot("12:40", "14:00", listOf("1층로비", "나래울입구(초소)", "2층로비").map { it.toLoc() }),
-            DutySlot("14:00", "15:00", listOf("식당앞 E/S", "어체앞 E/S", "나래울입구(초소)").map { it.toLoc() }),
-            DutySlot("15:00", "16:00", listOf("나래울입구(초소)", "식당앞 E/S", "어체앞 E/S").map { it.toLoc() }),
-            DutySlot("16:00", "17:00", listOf("어체앞 E/S", "나래울입구(초소)", "식당앞 E/S").map { it.toLoc() })
-        )),
+            DutySlot("08:00", "09:00", listOf("나래울입구(초소)", "2층로비", "1층로비"), listOf(true, true, true)),
+            DutySlot("09:00", "10:00", listOf("2층로비", "1층로비", "나래울입구(초소)"), listOf(true, true, true)),
+            DutySlot("10:00", "11:00", listOf("1층로비", "나래울입구(초소)", "2층로비"), listOf(true, true, true)),
+            DutySlot("11:00", "11:20", listOf("나래울입구(초소)", "어체앞 E/S", "식당앞 E/S"), listOf(true, true, true)),
+            DutySlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간"), listOf(true, true, true)),
+            DutySlot("12:40", "14:00", listOf("1층로비", "나래울입구(초소)", "2층로비"), listOf(true, true, true)),
+            DutySlot("14:00", "15:00", listOf("식당앞 E/S", "어체앞 E/S", "나래울입구(초소)"), listOf(true, true, true)),
+            DutySlot("15:00", "16:00", listOf("나래울입구(초소)", "식당앞 E/S", "어체앞 E/S"), listOf(true, true, true)),
+            DutySlot("16:00", "17:00", listOf("어체앞 E/S", "나래울입구(초소)", "식당앞 E/S"), listOf(true, true, true))
+        ), alertOnFinish = true),
         DutyTable("주1-4", 4, PtEffect.EARLY_FINISH, listOf(
-            DutySlot("08:00", "09:00", listOf("대형버스주차장", "제1버스주차장/나래울입구", "2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("09:00", "10:00", listOf("제1버스주차장/나래울입구", "2층로비", "1층로비", "대형버스주차장").map { it.toLoc() }),
-            DutySlot("10:00", "11:00", listOf("2층로비", "1층로비", "대형버스주차장", "제1버스주차장/나래울입구").map { it.toLoc() }),
-            DutySlot("11:00", "11:20", listOf("순찰(본관/숙련관)", "어체앞 E/S", "제1버스주차장/나래울입구", "식당앞 E/S").map { it.toLoc() }),
-            DutySlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간", "점심시간").map { it.toLoc() }),
-            DutySlot("12:40", "14:00", listOf("대형버스주차장", "제1버스주차장/나래울입구", "2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("14:00", "15:00", listOf("제1버스주차장/나래울입구", "어체앞 E/S", "식당앞 E/S", "순찰(본관/숙련관)").map { it.toLoc() }),
-            DutySlot("15:00", "16:00", listOf("어체앞 E/S", "식당앞 E/S", "순찰(본관/숙련관)", "제1버스주차장/나래울입구").map { it.toLoc() }),
-            DutySlot("16:00", "17:00", listOf("식당앞 E/S", "순찰(본관/숙련관)", "제1버스주차장/나래울입구", "어체앞 E/S").map { it.toLoc() })
-        )),
+            DutySlot("08:00", "09:00", listOf("대형버스주차장", "제1버스주차장/나래울입구", "2층로비", "1층로비"), listOf(true, true, true, true)),
+            DutySlot("09:00", "10:00", listOf("제1버스주차장/나래울입구", "2층로비", "1층로비", "대형버스주차장"), listOf(true, true, true, true)),
+            DutySlot("10:00", "11:00", listOf("2층로비", "1층로비", "대형버스주차장", "제1버스주차장/나래울입구"), listOf(true, true, true, true)),
+            DutySlot("11:00", "11:20", listOf("순찰(본관/숙련관)", "어체앞 E/S", "제1버스주차장/나래울입구", "식당앞 E/S"), listOf(true, true, true, true)),
+            DutySlot("11:20", "12:40", listOf("점심시간", "점심시간", "점심시간", "점심시간"), listOf(true, true, true, true)),
+            DutySlot("12:40", "14:00", listOf("대형버스주차장", "제1버스주차장/나래울입구", "2층로비", "1층로비"), listOf(true, true, true, true)),
+            DutySlot("14:00", "15:00", listOf("제1버스주차장/나래울입구", "어체앞 E/S", "식당앞 E/S", "순찰(본관/숙련관)"), listOf(true, true, true, true)),
+            DutySlot("15:00", "16:00", listOf("어체앞 E/S", "식당앞 E/S", "순찰(본관/숙련관)", "제1버스주차장/나래울입구"), listOf(true, true, true, true)),
+            DutySlot("16:00", "17:00", listOf("식당앞 E/S", "순찰(본관/숙련관)", "제1버스주차장/나래울입구", "어체앞 E/S"), listOf(true, true, true, true))
+        ), alertOnFinish = true),
         DutyTable("주2-1", 3, PtEffect.LATE_START, listOf(
-            DutySlot("11:00", "12:00", listOf("대형버스주차장", "2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("12:00", "12:40", listOf("2층로비", "1층로비", "대형버스주차장").map { it.toLoc() }),
-            DutySlot("12:40", "14:00", listOf("점심시간", "점심시간", "점심시간").map { it.toLoc() }),
-            DutySlot("14:00", "15:00", listOf("1층로비", "대형버스주차장", "2층로비").map { it.toLoc() }),
-            DutySlot("15:00", "16:00", listOf("대형버스주차장", "2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("16:00", "17:00", listOf("2층로비", "1층로비", "대형버스주차장").map { it.toLoc() }),
-            DutySlot("17:00", "18:00", listOf("1층로비", "대형버스주차장", "2층로비").map { it.toLoc() }),
-            DutySlot("18:00", "19:00", listOf("2층로비", "근무없음", "1층로비").map { it.toLoc() }),
-            DutySlot("19:00", "20:00", listOf("1층로비", "근무없음", "2층로비").map { it.toLoc() })
-        )),
+            DutySlot("11:00", "12:00", listOf("대형버스주차장", "2층로비", "1층로비"), listOf(true, true, true)),
+            DutySlot("12:00", "12:40", listOf("2층로비", "1층로비", "대형버스주차장"), listOf(true, true, true)),
+            DutySlot("12:40", "14:00", listOf("점심시간", "점심시간", "점심시간"), listOf(true, true, true)),
+            DutySlot("14:00", "15:00", listOf("1층로비", "대형버스주차장", "2층로비"), listOf(true, true, true)),
+            DutySlot("15:00", "16:00", listOf("대형버스주차장", "2층로비", "1층로비"), listOf(true, true, true)),
+            DutySlot("16:00", "17:00", listOf("2층로비", "1층로비", "대형버스주차장"), listOf(true, true, true)),
+            DutySlot("17:00", "18:00", listOf("1층로비", "대형버스주차장", "2층로비"), listOf(true, true, true)),
+            DutySlot("18:00", "19:00", listOf("2층로비", "순찰", "1층로비"), listOf(true, false, true)),
+            DutySlot("19:00", "20:00", listOf("1층로비", "순찰", "2층로비"), listOf(true, false, true))
+        ), alertOnFinish = true),
         DutyTable("주2-2", 3, PtEffect.LATE_START, listOf(
-            DutySlot("11:00", "12:00", listOf("나래울입구(초소)", "2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("12:00", "12:40", listOf("2층로비", "1층로비", "나래울입구(초소)").map { it.toLoc() }),
-            DutySlot("12:40", "14:00", listOf("점심시간", "점심시간", "점심시간").map { it.toLoc() }),
-            DutySlot("14:00", "15:00", listOf("1층로비", "나래울입구(초소)", "2층로비").map { it.toLoc() }),
-            DutySlot("15:00", "16:00", listOf("나래울입구(초소)", "2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("16:00", "17:00", listOf("2층로비", "1층로비", "나래울입구(초소)").map { it.toLoc() }),
-            DutySlot("17:00", "18:00", listOf("1층로비", "나래울입구(초소)", "2층로비").map { it.toLoc() }),
-            DutySlot("18:00", "19:00", listOf("2층로비", "근무없음", "1층로비").map { it.toLoc() }),
-            DutySlot("19:00", "20:00", listOf("1층로비", "근무없음", "2층로비").map { it.toLoc() })
-        )),
+            DutySlot("11:00", "12:00", listOf("나래울입구(초소)", "2층로비", "1층로비"), listOf(true, true, true)),
+            DutySlot("12:00", "12:40", listOf("2층로비", "1층로비", "나래울입구(초소)"), listOf(true, true, true)),
+            DutySlot("12:40", "14:00", listOf("점심시간", "점심시간", "점심시간"), listOf(true, true, true)),
+            DutySlot("14:00", "15:00", listOf("1층로비", "나래울입구(초소)", "2층로비"), listOf(true, true, true)),
+            DutySlot("15:00", "16:00", listOf("나래울입구(초소)", "2층로비", "1층로비"), listOf(true, true, true)),
+            DutySlot("16:00", "17:00", listOf("2층로비", "1층로비", "나래울입구(초소)"), listOf(true, true, true)),
+            DutySlot("17:00", "18:00", listOf("1층로비", "나래울입구(초소)", "2층로비"), listOf(true, true, true)),
+            DutySlot("18:00", "19:00", listOf("2층로비", "순찰", "1층로비"), listOf(true, false, true)),
+            DutySlot("19:00", "20:00", listOf("1층로비", "순찰", "2층로비"), listOf(true, false, true))
+        ), alertOnFinish = true),
         DutyTable("주2-3", 2, PtEffect.LATE_START, listOf(
-            DutySlot("11:00", "12:00", listOf("2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("12:00", "12:40", listOf("1층로비", "2층로비").map { it.toLoc() }),
-            DutySlot("12:40", "14:00", listOf("점심시간", "점심시간").map { it.toLoc() }),
-            DutySlot("14:00", "15:00", listOf("2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("15:00", "16:00", listOf("1층로비", "2층로비").map { it.toLoc() }),
-            DutySlot("16:00", "17:00", listOf("2층로비", "1층로비").map { it.toLoc() }),
-            DutySlot("17:00", "18:00", listOf("1층로비", "2층로비").map { it.toLoc() }),
-            DutySlot("18:00", "19:00", listOf("1층로비", "근무없음").map { it.toLoc() }),
-            DutySlot("19:00", "20:00", listOf("1층로비", "근무없음").map { it.toLoc() })
-        ))
+            DutySlot("11:00", "12:00", listOf("2층로비", "1층로비"), listOf(true, true)),
+            DutySlot("12:00", "12:40", listOf("1층로비", "2층로비"), listOf(true, true)),
+            DutySlot("12:40", "14:00", listOf("점심시간", "점심시간"), listOf(true, true)),
+            DutySlot("14:00", "15:00", listOf("2층로비", "1층로비"), listOf(true, true)),
+            DutySlot("15:00", "16:00", listOf("1층로비", "2층로비"), listOf(true, true)),
+            DutySlot("16:00", "17:00", listOf("2층로비", "1층로비"), listOf(true, true)),
+            DutySlot("17:00", "18:00", listOf("1층로비", "2층로비"), listOf(true, true)),
+            DutySlot("18:00", "19:00", listOf("1층로비", "순찰"), listOf(true, false)),
+            DutySlot("19:00", "20:00", listOf("1층로비", "순찰"), listOf(true, false))
+        ), alertOnFinish = true)
     )
 
     fun getDefaultTables(): List<DutyTable> = defaultTables
@@ -137,6 +132,8 @@ class DutyRepository(private val context: Context) {
     val isPt: Flow<Boolean> = context.dataStore.data.map { it[IS_PT] ?: false }
     val isAppActive: Flow<Boolean> = context.dataStore.data.map { it[IS_APP_ACTIVE] ?: true }
     val alarmLeadTime: Flow<Int> = context.dataStore.data.map { it[ALARM_LEAD_TIME] ?: 5 }
+    val receiveFinishAlarm: Flow<Boolean> = context.dataStore.data.map { it[RECEIVE_FINISH_ALARM] ?: true }
+    val finishAlarmLeadTime: Flow<Int> = context.dataStore.data.map { it[FINISH_ALARM_LEAD_TIME] ?: 2 }
 
     val workScheduleImages: Flow<List<String>> = context.dataStore.data.map { preferences ->
         val serialized = preferences[WORK_SCHEDULE_IMAGES] ?: ""
@@ -160,6 +157,8 @@ class DutyRepository(private val context: Context) {
     suspend fun savePtStatus(isPt: Boolean) = context.dataStore.edit { it[IS_PT] = isPt }
     suspend fun saveAppActiveStatus(isActive: Boolean) = context.dataStore.edit { it[IS_APP_ACTIVE] = isActive }
     suspend fun saveAlarmLeadTime(minutes: Int) = context.dataStore.edit { it[ALARM_LEAD_TIME] = minutes }
+    suspend fun saveReceiveFinishAlarm(receive: Boolean) = context.dataStore.edit { it[RECEIVE_FINISH_ALARM] = receive }
+    suspend fun saveFinishAlarmLeadTime(minutes: Int) = context.dataStore.edit { it[FINISH_ALARM_LEAD_TIME] = minutes }
     suspend fun saveCustomDutyTables(tables: List<DutyTable>?) = context.dataStore.edit { 
         if (tables == null) it.remove(CUSTOM_DUTY_TABLES) else it[CUSTOM_DUTY_TABLES] = json.encodeToString(tables)
     }

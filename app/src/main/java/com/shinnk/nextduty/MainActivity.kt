@@ -15,13 +15,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import android.app.NotificationChannel
-import android.os.PowerManager
 import com.shinnk.nextduty.data.DutyRepository
 import com.shinnk.nextduty.system.AlarmProvider
 import com.shinnk.nextduty.ui.MainApp
@@ -65,6 +63,8 @@ class MainActivity : ComponentActivity() {
             val dutyTableImages by repository.dutyTableImages.collectAsState(initial = emptyList())
             val allTables by repository.allTables.collectAsState(initial = repository.getDefaultTables())
             val alarmLeadTime by repository.alarmLeadTime.collectAsState(initial = 5)
+            val receiveFinishAlarm by repository.receiveFinishAlarm.collectAsState(initial = true)
+            val finishAlarmLeadTime by repository.finishAlarmLeadTime.collectAsState(initial = 2)
 
             MainApp(
                 dutySettings = dutySettings,
@@ -74,12 +74,14 @@ class MainActivity : ComponentActivity() {
                 workScheduleImages = workScheduleImages,
                 dutyTableImages = dutyTableImages,
                 alarmLeadTime = alarmLeadTime,
+                receiveFinishAlarm = receiveFinishAlarm,
+                finishAlarmLeadTime = finishAlarmLeadTime,
                 onSaveSettings = { tableName, number, pt ->
                     lifecycleScope.launch {
                         repository.saveDutySettings(tableName, number, pt)
                         if (isAppActive) {
                             val table = allTables.find { it.displayName == tableName }
-                            if (table != null) alarmProvider.scheduleAlarms(table, number, pt, alarmLeadTime)
+                            if (table != null) alarmProvider.scheduleAlarms(table, number, pt, alarmLeadTime, receiveFinishAlarm, finishAlarmLeadTime)
                         }
                     }
                 },
@@ -89,7 +91,7 @@ class MainActivity : ComponentActivity() {
                         if (isActive) {
                             dutySettings?.let { settings ->
                                 val table = allTables.find { it.displayName == settings.tableName }
-                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, alarmLeadTime)
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, alarmLeadTime, receiveFinishAlarm, finishAlarmLeadTime)
                             }
                         } else {
                             alarmProvider.cancelAllAlarms()
@@ -106,7 +108,7 @@ class MainActivity : ComponentActivity() {
                             if (isAppActive) {
                                 val currentTables = repository.allTables.firstOrNull() ?: emptyList()
                                 val table = currentTables.find { it.displayName == settings.tableName }
-                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, alarmLeadTime)
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, alarmLeadTime, receiveFinishAlarm, finishAlarmLeadTime)
                             }
                         }
                     }
@@ -117,7 +119,29 @@ class MainActivity : ComponentActivity() {
                         dutySettings?.let { settings ->
                             if (isAppActive) {
                                 val table = allTables.find { it.displayName == settings.tableName }
-                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, minutes)
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, minutes, receiveFinishAlarm, finishAlarmLeadTime)
+                            }
+                        }
+                    }
+                },
+                onSaveReceiveFinishAlarm = { receive ->
+                    lifecycleScope.launch {
+                        repository.saveReceiveFinishAlarm(receive)
+                        dutySettings?.let { settings ->
+                            if (isAppActive) {
+                                val table = allTables.find { it.displayName == settings.tableName }
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, alarmLeadTime, receive, finishAlarmLeadTime)
+                            }
+                        }
+                    }
+                },
+                onSaveFinishAlarmLeadTime = { minutes ->
+                    lifecycleScope.launch {
+                        repository.saveFinishAlarmLeadTime(minutes)
+                        dutySettings?.let { settings ->
+                            if (isAppActive) {
+                                val table = allTables.find { it.displayName == settings.tableName }
+                                if (table != null) alarmProvider.scheduleAlarms(table, settings.number, settings.isPt, alarmLeadTime, receiveFinishAlarm, minutes)
                             }
                         }
                     }
@@ -135,7 +159,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = "근무 교대 알람"
             val descriptionText = "근무 교대 시간을 알려주는 알림입니다."
-            val importance = NotificationManager.IMPORTANCE_MAX
+            val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel("duty_alarm_channel", name, importance).apply {
                 description = descriptionText
                 setBypassDnd(true)

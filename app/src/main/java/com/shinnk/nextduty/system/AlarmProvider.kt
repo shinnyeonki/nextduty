@@ -9,12 +9,10 @@ import android.media.AudioAttributes
 import android.media.Ringtone
 import android.media.RingtoneManager
 import android.os.Build
-import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import com.shinnk.nextduty.data.DutyCalculator
 import com.shinnk.nextduty.data.DutyTable
-import com.shinnk.nextduty.data.ShiftPattern
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -25,9 +23,9 @@ class AlarmProvider(private val context: Context) {
         private var ringtone: Ringtone? = null
     }
 
-    fun scheduleAlarms(table: DutyTable, number: Int, isPt: Boolean, leadTime: Int) {
+    fun scheduleAlarms(table: DutyTable, number: Int, isPt: Boolean, leadTime: Int, receiveFinishAlarm: Boolean, finishLeadTime: Int) {
         cancelAllAlarms()
-        val schedules = DutyCalculator.getAlarmSchedules(table, number, isPt, leadTime)
+        val schedules = DutyCalculator.getAlarmSchedules(table, number, isPt, leadTime, receiveFinishAlarm, finishLeadTime)
         val now = LocalDateTime.now()
 
         schedules.forEachIndexed { index, alarm ->
@@ -36,6 +34,7 @@ class AlarmProvider(private val context: Context) {
                 val intent = Intent(context, AlarmReceiver::class.java).apply {
                     putExtra("display_time", alarm.displayStartTime)
                     putExtra("location", alarm.location)
+                    putExtra("is_finish", alarm.isFinish)
                     putExtra("id", index)
                 }
                 val pendingIntent = PendingIntent.getBroadcast(context, index, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)

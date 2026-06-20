@@ -2,6 +2,7 @@ package com.shinnk.nextduty.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,7 +20,11 @@ import com.shinnk.nextduty.MainActivity
 @Composable
 fun AppSettingsDialog(
     leadTime: Int,
+    receiveFinishAlarm: Boolean,
+    finishLeadTime: Int,
     onLeadTimeChange: (Int) -> Unit,
+    onReceiveFinishAlarmChange: (Boolean) -> Unit,
+    onFinishLeadTimeChange: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -37,13 +42,13 @@ fun AppSettingsDialog(
                     color = MaterialTheme.colorScheme.primary
                 )
                 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(16.dp))
                 
                 Slider(
                     value = leadTime.toFloat(),
                     onValueChange = { onLeadTimeChange(it.toInt()) },
-                    valueRange = 1f..15f,
-                    steps = 13,
+                    valueRange = 1f..10f,
+                    steps = 8,
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -52,13 +57,61 @@ fun AppSettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("1분", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                    Text("15분", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    Text("10분", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 }
                 
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("퇴근 알림 받기", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("업무 종료 시 알람을 받습니다.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    }
+                    Switch(
+                        checked = receiveFinishAlarm,
+                        onCheckedChange = onReceiveFinishAlarmChange
+                    )
+                }
+
+                if (receiveFinishAlarm) {
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "퇴근 ${finishLeadTime}분 전 알림",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    Slider(
+                        value = finishLeadTime.toFloat(),
+                        onValueChange = { onFinishLeadTimeChange(it.toInt()) },
+                        valueRange = 1f..5f,
+                        steps = 3,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = receiveFinishAlarm
+                    )
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("1분", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        Text("5분", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    }
+                }
+
                 Spacer(Modifier.height(16.dp))
                 
                 Text(
-                    "슬라이더를 조절하여 미리 알림 시간을 설정하세요.",
+                    "설정을 변경하면 다음 알림부터 적용됩니다.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )
@@ -85,7 +138,7 @@ fun InfoDialog(onDismiss: () -> Unit) {
         text = {
             Column {
                 Text("NEXTDUTY", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
-                Text("버전: v1.0.0", style = MaterialTheme.typography.bodyMedium)
+                Text("버전: v1.2", style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(16.dp))
                 Text("개발자 정보", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                 Text("신년기 (sygys10293@gmail.com)", style = MaterialTheme.typography.bodyMedium)

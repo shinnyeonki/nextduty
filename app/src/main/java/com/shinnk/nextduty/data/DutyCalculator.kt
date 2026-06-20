@@ -26,11 +26,8 @@ object DutyCalculator {
         val (shiftStart, shiftEnd) = getShiftTimes(table, isPt)
 
         return table.slots.mapNotNull { slot ->
-            val locationType = slot.locations.getOrNull(number - 1) ?: LocationType.Off
+            val location = slot.locations.getOrNull(number - 1) ?: "근무없음"
             
-            // "근무없음"만 제외하고, "점심시간"과 "일반근무"는 포함
-            if (locationType is LocationType.Off) return@mapNotNull null
-
             val originalStart = LocalTime.parse(slot.startTime)
             val originalEnd = LocalTime.parse(slot.endTime)
 
@@ -38,14 +35,11 @@ object DutyCalculator {
             var finalEnd = originalEnd
             var displayStart = slot.startTime
 
-            // PT 처리: 근무 시간이 시프트 범위 내에 있도록 조정
             if (isPt) {
-                // 시작 시간이 시프트 시작 전이면 시프트 시작으로 조정
                 if (finalStart.isBefore(shiftStart)) {
                     finalStart = shiftStart
                     displayStart = shiftStart.toString()
                 }
-                // 종료 시간이 시프트 종료 후이면 시프트 종료로 조정
                 if (finalEnd.isAfter(shiftEnd)) {
                     finalEnd = shiftEnd
                 }
@@ -53,7 +47,8 @@ object DutyCalculator {
 
             if (!finalStart.isBefore(finalEnd) || !finalStart.isBefore(shiftEnd)) return@mapNotNull null
 
-            ProcessedSlot(finalStart, finalEnd, displayStart, locationType.getDisplayName())
+            val alertEnabled = slot.alerts.getOrNull(number - 1) ?: true
+            ProcessedSlot(finalStart, finalEnd, displayStart, location, alertEnabled)
         }
     }
 
@@ -84,17 +79,21 @@ object DutyCalculator {
         return DutyInfo(currLoc, currRange, nLoc, nStart, remaining)
     }
 
-    fun getAlarmSchedules(table: DutyTable, number: Int, isPt: Boolean, leadTime: Int = 5): List<DutyAlarm> {
+    fun getAlarmSchedules(table: DutyTable, number: Int, isPt: Boolean, leadTime: Int = 5, receiveFinishAlarm: Boolean = true, finishLeadTime: Int = 1): List<DutyAlarm> {
         val slots = getProcessedSlots(table, number, isPt)
         if (slots.isEmpty()) return emptyList()
 
         val alarms = mutableListOf<DutyAlarm>()
         slots.forEach { slot ->
-            alarms.add(DutyAlarm(slot.startTime.minusMinutes(leadTime.toLong()), slot.displayStartTime, slot.location))
+            if (slot.alert) {
+                alarms.add(DutyAlarm(slot.startTime.minusMinutes(leadTime.toLong()), slot.displayStartTime, slot.location, isFinish = false))
+            }
         }
 
-        val lastSlot = slots.last()
-        alarms.add(DutyAlarm(lastSlot.endTime.minusMinutes(leadTime.toLong()), lastSlot.endTime.toString(), "업무 종료"))
+        if (receiveFinishAlarm) {
+            val lastSlot = slots.last()
+            alarms.add(DutyAlarm(lastSlot.endTime.minusMinutes(finishLeadTime.toLong()), lastSlot.endTime.toString(), "업무 종료", isFinish = true))
+        }
 
         return alarms.asSequence().distinctBy { it.triggerTime }.sortedBy { it.triggerTime }.toList()
     }

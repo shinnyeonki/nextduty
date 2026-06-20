@@ -6,23 +6,11 @@ import java.time.Duration
 import java.time.LocalTime
 
 @Serializable
-sealed class LocationType {
-    @Serializable @SerialName("active") data class Active(val name: String) : LocationType()
-    @Serializable @SerialName("off") object Off : LocationType()
-    @Serializable @SerialName("lunch") object Lunch : LocationType()
-    
-    fun getDisplayName(): String = when(this) {
-        is Active -> name
-        is Off -> "근무없음"
-        is Lunch -> "점심시간"
-    }
-}
-
-@Serializable
 data class DutySlot(
     val startTime: String,
     val endTime: String,
-    val locations: List<LocationType>
+    val locations: List<String>,
+    val alerts: List<Boolean>
 )
 
 @Serializable
@@ -36,7 +24,8 @@ data class DutyTable(
     val displayName: String,
     val capacity: Int,
     val ptEffect: PtEffect,
-    val slots: List<DutySlot>
+    val slots: List<DutySlot>,
+    val alertOnFinish: Boolean = true
 )
 
 data class DutySettings(
@@ -56,12 +45,14 @@ data class DutyInfo(
 data class DutyAlarm(
     val triggerTime: LocalTime,
     val displayStartTime: String,
-    val location: String
+    val location: String,
+    val isFinish: Boolean = false
 )
 
 data class ProcessedSlot(
     val startTime: LocalTime,
     val endTime: LocalTime,
     val displayStartTime: String,
-    val location: String
+    val location: String,
+    val alert: Boolean
 )

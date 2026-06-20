@@ -57,42 +57,6 @@ fun DutyPlanEditorDialog(
 
     BackHandler(onBack = handleBack)
 
-    var showTableSettings by remember { mutableStateOf(false) }
-
-    if (showTableSettings) {
-        val currentTable = editedTables.find { it.displayName == selectedTableName }
-        if (currentTable != null) {
-            var tempPtEffect by remember { mutableStateOf(currentTable.ptEffect) }
-            AlertDialog(
-                onDismissRequest = { showTableSettings = false },
-                title = { Text("편성표 설정", fontWeight = FontWeight.Bold) },
-                text = {
-                    Column {
-                        Text("PT 규칙", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            PtEffect.entries.forEach { effect ->
-                                val label = if (effect == PtEffect.EARLY_FINISH) "빨리 퇴근" else "늦게 출근"
-                                FilterChip(
-                                    selected = tempPtEffect == effect,
-                                    onClick = { tempPtEffect = effect },
-                                    label = { Text(label) },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        editedTables = editedTables.map { if (it.displayName == selectedTableName) it.copy(ptEffect = tempPtEffect) else it }
-                        showTableSettings = false
-                    }) { Text("적용") }
-                },
-                dismissButton = { TextButton(onClick = { showTableSettings = false }) { Text("취소") } }
-            )
-        }
-    }
-
     if (showExitConfirm) {
         AlertDialog(
             onDismissRequest = { showExitConfirm = false },
@@ -152,24 +116,26 @@ fun DutyPlanEditorDialog(
         var newName by remember { mutableStateOf("") }
         var newCapacity by remember { mutableIntStateOf(3) }
         var newPtEffect by remember { mutableStateOf(PtEffect.EARLY_FINISH) }
+        
         AlertDialog(
             onDismissRequest = { showAddTableDialog = false },
             title = { Text("새 편성표 추가", fontWeight = FontWeight.Bold) },
             text = {
-                Column {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     OutlinedTextField(value = newName, onValueChange = { newName = it }, label = { Text("편성표 이름") }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(16.dp))
                     Text("인원수: $newCapacity", style = MaterialTheme.typography.bodyMedium)
                     Slider(value = newCapacity.toFloat(), onValueChange = { newCapacity = it.toInt() }, valueRange = 1f..4f, steps = 2)
+                    
                     Spacer(Modifier.height(16.dp))
-                    Text("PT 규칙 선택", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("기본 PT 규칙", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PtEffect.entries.forEach { effect ->
                             val label = if (effect == PtEffect.EARLY_FINISH) "빨리 퇴근" else "늦게 출근"
-                            FilterChip(
+                            CompactSelectableChip(
+                                label = label,
                                 selected = newPtEffect == effect,
                                 onClick = { newPtEffect = effect },
-                                label = { Text(label) },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -180,7 +146,13 @@ fun DutyPlanEditorDialog(
                 Button(
                     enabled = newName.isNotBlank() && editedTables.none { it.displayName == newName },
                     onClick = {
-                        val newTable = DutyTable(newName, newCapacity, newPtEffect, listOf(DutySlot("09:00", "10:00", List(newCapacity) { LocationType.Off })))
+                        val newTable = DutyTable(
+                            displayName = newName, 
+                            capacity = newCapacity, 
+                            ptEffect = newPtEffect, 
+                            slots = listOf(DutySlot("09:00", "10:00", List(newCapacity) { "근무없음" }, List(newCapacity) { true })),
+                            alertOnFinish = true
+                        )
                         editedTables = editedTables + newTable
                         selectedTableName = newName
                         showAddTableDialog = false
@@ -206,7 +178,6 @@ fun DutyPlanEditorDialog(
                         var showMenu by remember { mutableStateOf(false) }
                         IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.Settings, "설정") }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            DropdownMenuItem(text = { Text("현재 편성표 설정") }, onClick = { showMenu = false; showTableSettings = true }, leadingIcon = { Icon(Icons.Default.SettingsSuggest, null) })
                             DropdownMenuItem(text = { Text("새 편성표 추가") }, onClick = { showMenu = false; showAddTableDialog = true }, leadingIcon = { Icon(Icons.Default.Add, null) })
                             if (selectedTableName.isNotEmpty()) {
                                 DropdownMenuItem(text = { Text("현재 편성표 삭제", color = MaterialTheme.colorScheme.error) }, onClick = { showMenu = false; showDeleteConfirm = true }, leadingIcon = { Icon(Icons.Default.DeleteForever, null, tint = MaterialTheme.colorScheme.error) })
@@ -235,13 +206,41 @@ fun DutyPlanEditorDialog(
                             itemsIndexed(currentTable.slots) { index, slot -> SlotEditCard(slot = slot, onClick = { editingSlotIndex = index }) }
                             item {
                                 OutlinedButton(onClick = {
-                                    val newSlot = DutySlot("10:00", "11:00", List(currentTable.capacity) { LocationType.Off })
+                                    val newSlot = DutySlot("10:00", "11:00", List(currentTable.capacity) { "근무없음" }, List(currentTable.capacity) { true })
                                     val newTables = editedTables.toMutableList()
                                     newTables[currentTableIndex] = currentTable.copy(slots = currentTable.slots + newSlot)
                                     editedTables = newTables
                                 }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                                     Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("슬롯 추가")
                                 }
+                            }
+                            
+                            item {
+                                Spacer(Modifier.height(12.dp))
+                                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                                Spacer(Modifier.height(24.dp))
+                                
+                                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                                    Text("편성표 설정", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.height(16.dp))
+                                    Text("PT 규칙", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        PtEffect.entries.forEach { effect ->
+                                            val label = if (effect == PtEffect.EARLY_FINISH) "빨리 퇴근" else "늦게 출근"
+                                            CompactSelectableChip(
+                                                label = label,
+                                                selected = currentTable.ptEffect == effect,
+                                                onClick = {
+                                                    val newTables = editedTables.toMutableList()
+                                                    newTables[currentTableIndex] = currentTable.copy(ptEffect = effect)
+                                                    editedTables = newTables
+                                                },
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(32.dp))
                             }
                         }
                     }
@@ -277,9 +276,24 @@ private fun SlotEditCard(slot: DutySlot, onClick: () -> Unit) {
         Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("${slot.startTime} ~ ${slot.endTime}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(slot.locations.joinToString(" | ") { it.getDisplayName() }, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(slot.locations.joinToString(" | "), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
             Icon(Icons.Default.ChevronRight, null, tint = Color.LightGray)
+        }
+    }
+}
+
+@Composable
+private fun CompactSelectableChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(40.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = if (selected) FontWeight.Black else FontWeight.Medium, color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -288,7 +302,8 @@ private fun SlotEditCard(slot: DutySlot, onClick: () -> Unit) {
 @Composable
 private fun SlotDetailEditDialog(slot: DutySlot, capacity: Int, onDismiss: () -> Unit, onConfirm: (DutySlot) -> Unit, onDelete: () -> Unit) {
     var startTime by remember { mutableStateOf(slot.startTime) }; var endTime by remember { mutableStateOf(slot.endTime) }
-    var locations by remember { mutableStateOf(if (slot.locations.size >= capacity) slot.locations.take(capacity) else slot.locations + List(capacity - slot.locations.size) { LocationType.Off }) }
+    var locations by remember { mutableStateOf(if (slot.locations.size >= capacity) slot.locations.take(capacity) else slot.locations + List(capacity - slot.locations.size) { "근무없음" }) }
+    var alertSettings by remember { mutableStateOf(if (slot.alerts.size >= capacity) slot.alerts.take(capacity) else slot.alerts + List(capacity - slot.alerts.size) { true }) }
 
     AlertDialog(onDismissRequest = onDismiss, title = {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -300,10 +315,38 @@ private fun SlotDetailEditDialog(slot: DutySlot, capacity: Int, onDismiss: () ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextField(value = startTime, onValueChange = { startTime = it }, modifier = Modifier.weight(1f), label = { Text("시작") }); Text(" ~ "); TextField(value = endTime, onValueChange = { endTime = it }, modifier = Modifier.weight(1f), label = { Text("종료") })
             }
-            Spacer(Modifier.height(20.dp)); locations.forEachIndexed { index, loc ->
-                val textValue = if (loc is LocationType.Active) loc.name else if (loc is LocationType.Lunch) "점심시간" else "근무없음"
-                TextField(value = textValue, onValueChange = { newValue -> val newList = locations.toMutableList(); newList[index] = when (newValue) { "근무없음" -> LocationType.Off; "점심시간" -> LocationType.Lunch; else -> LocationType.Active(newValue) }; locations = newList }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), label = { Text("${index + 1}번 근무자") })
+            
+            Spacer(Modifier.height(20.dp))
+            locations.forEachIndexed { index, loc ->
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${index + 1}번 근무자", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.weight(1f))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { 
+                            val newList = alertSettings.toMutableList()
+                            newList[index] = !newList[index]
+                            alertSettings = newList
+                        }) {
+                            Checkbox(checked = alertSettings[index], onCheckedChange = { 
+                                val newList = alertSettings.toMutableList()
+                                newList[index] = it
+                                alertSettings = newList
+                            })
+                            Text("알림", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    TextField(
+                        value = loc, 
+                        onValueChange = { newValue -> 
+                            val newList = locations.toMutableList()
+                            newList[index] = newValue
+                            locations = newList 
+                        }, 
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("근무지 입력") }
+                    )
+                }
             }
         }
-    }, confirmButton = { Button(onClick = { onConfirm(DutySlot(startTime, endTime, locations)) }) { Text("확인") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } })
+    }, confirmButton = { Button(onClick = { onConfirm(DutySlot(startTime, endTime, locations, alertSettings)) }) { Text("확인") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } })
 }

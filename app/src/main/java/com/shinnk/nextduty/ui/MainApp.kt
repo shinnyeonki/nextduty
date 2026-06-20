@@ -33,13 +33,17 @@ fun MainApp(
     workScheduleImages: List<String>,
     dutyTableImages: List<String>,
     alarmLeadTime: Int,
+    receiveFinishAlarm: Boolean,
+    finishAlarmLeadTime: Int,
     onSaveSettings: (String, Int, Boolean) -> Unit,
     onSaveAppActiveStatus: (Boolean) -> Unit,
     onSaveWorkScheduleImages: (List<String>) -> Unit,
     onSaveDutyTableImages: (List<String>) -> Unit,
     onEdit: () -> Unit,
     onSaveCustomDutyTables: (List<DutyTable>?) -> Unit,
-    onSaveAlarmLeadTime: (Int) -> Unit
+    onSaveAlarmLeadTime: (Int) -> Unit,
+    onSaveReceiveFinishAlarm: (Boolean) -> Unit,
+    onSaveFinishAlarmLeadTime: (Int) -> Unit
 ) {
     var selectedBottomTab by remember { mutableIntStateOf(0) }
     var isEditing by remember { mutableStateOf(false) }
@@ -61,7 +65,15 @@ fun MainApp(
     val scope = rememberCoroutineScope()
 
     if (showInfoDialog) InfoDialog(onDismiss = { showInfoDialog = false })
-    if (showAppSettingsDialog) AppSettingsDialog(leadTime = alarmLeadTime, onLeadTimeChange = onSaveAlarmLeadTime, onDismiss = { showAppSettingsDialog = false })
+    if (showAppSettingsDialog) AppSettingsDialog(
+        leadTime = alarmLeadTime,
+        receiveFinishAlarm = receiveFinishAlarm,
+        finishLeadTime = finishAlarmLeadTime,
+        onLeadTimeChange = onSaveAlarmLeadTime,
+        onReceiveFinishAlarmChange = onSaveReceiveFinishAlarm,
+        onFinishLeadTimeChange = onSaveFinishAlarmLeadTime,
+        onDismiss = { showAppSettingsDialog = false }
+    )
     if (showPlanEditorDialog) DutyPlanEditorDialog(initialTables = allTables, onSave = onSaveCustomDutyTables, onDismiss = { showPlanEditorDialog = false })
     if (showPatrolDialog) PatrolDialog(onDismiss = { showPatrolDialog = false })
 

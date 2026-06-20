@@ -7,6 +7,10 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -21,12 +25,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.withTimeoutOrNull
 
 val PATROL_POINTS = listOf(
     "본인 사물함", "1층 사무존 남자 화장실", "2층 진로설계관內 여자 화장실", "숙련관 동측 1층 비상계단 앞",
@@ -52,8 +60,6 @@ fun PatrolDialog(onDismiss: () -> Unit) {
     }
 
     var isEditMode by remember { mutableStateOf(false) }
-    var pendingCheckIndex by remember { mutableStateOf<Int?>(null) }
-    var pendingUncheckIndex by remember { mutableStateOf<Int?>(null) }
     var showResetConfirm by remember { mutableStateOf(false) }
     
     var editingPointIndex by remember { mutableStateOf<Int?>(null) }
@@ -79,25 +85,6 @@ fun PatrolDialog(onDismiss: () -> Unit) {
                 }) { Text("확인") }
             },
             dismissButton = { TextButton(onClick = { showAddDialog = false; editingPointIndex = null; pointNameInput = "" }) { Text("취소") } }
-        )
-    }
-
-    if (pendingCheckIndex != null) {
-        AlertDialog(
-            onDismissRequest = { pendingCheckIndex = null }, shape = RoundedCornerShape(28.dp), containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text("지점 확인", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black) },
-            text = { Text("${pendingCheckIndex!!}. ${patrolPoints.getOrNull(pendingCheckIndex!!) ?: ""}\n이 지점을 확인했나요?", style = MaterialTheme.typography.bodyLarge, lineHeight = 24.sp) },
-            confirmButton = { Button(onClick = { checkedIndices = checkedIndices + pendingCheckIndex!!; pendingCheckIndex = null }, shape = RoundedCornerShape(14.dp)) { Text("확인 완료", fontWeight = FontWeight.Bold) } },
-            dismissButton = { TextButton(onClick = { pendingCheckIndex = null }) { Text("취소", color = Color.Gray) } }
-        )
-    }
-
-    if (pendingUncheckIndex != null) {
-        AlertDialog(
-            onDismissRequest = { pendingUncheckIndex = null }, shape = RoundedCornerShape(28.dp), title = { Text("순찰 취소", fontWeight = FontWeight.Black) },
-            text = { Text("${pendingUncheckIndex!!}. ${patrolPoints.getOrNull(pendingUncheckIndex!!) ?: ""}\n순찰 확인을 취소하시겠습니까?") },
-            confirmButton = { Button(onClick = { checkedIndices = checkedIndices - pendingUncheckIndex!!; pendingUncheckIndex = null }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), shape = RoundedCornerShape(14.dp)) { Text("기록 취소", fontWeight = FontWeight.Bold) } },
-            dismissButton = { TextButton(onClick = { pendingUncheckIndex = null }) { Text("닫기") } }
         )
     }
 
@@ -135,7 +122,7 @@ fun PatrolDialog(onDismiss: () -> Unit) {
                             }
                             if (!isEditMode) {
                                 LinearProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().height(12.dp).clip(CircleShape), color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
-                                Text(text = "${checkedIndices.size}개 지점 완료 / 총 ${patrolPoints.size}개", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                                Text(text = "${checkedIndices.size}개 지점 완료 / 총 ${patrolPoints.size}개 | 2초간 꾹 눌러서 체크", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                             } else Text(text = "지점을 추가하거나 수정, 삭제할 수 있습니다.", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                         }
                     }
@@ -146,12 +133,29 @@ fun PatrolDialog(onDismiss: () -> Unit) {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 itemsIndexed(patrolPoints) { index, point ->
                     val isChecked = checkedIndices.contains(index)
-                    PatrolItem(index = index, text = point, isChecked = isChecked, isEditMode = isEditMode, onClick = {
-                        if (isEditMode) { editingPointIndex = index; pointNameInput = point } else { if (!isChecked) pendingCheckIndex = index else pendingUncheckIndex = index }
-                    }, onDelete = {
-                        val newList = patrolPoints.toMutableList(); newList.removeAt(index); patrolPoints = newList
-                        checkedIndices = checkedIndices.filter { it != index }.map { if (it > index) it - 1 else it }.toSet()
-                    })
+                    PatrolItem(
+                        index = index, 
+                        text = point, 
+                        isChecked = isChecked, 
+                        isEditMode = isEditMode, 
+                        onClick = {
+                            if (isEditMode) { 
+                                editingPointIndex = index
+                                pointNameInput = point 
+                            }
+                        }, 
+                        onLongClick = {
+                            if (!isEditMode) {
+                                checkedIndices = if (isChecked) checkedIndices - index else checkedIndices + index
+                            }
+                        },
+                        onDelete = {
+                            val newList = patrolPoints.toMutableList()
+                            newList.removeAt(index)
+                            patrolPoints = newList
+                            checkedIndices = checkedIndices.filter { it != index }.map { if (it > index) it - 1 else it }.toSet()
+                        }
+                    )
                 }
                 if (isEditMode) {
                     item {
@@ -167,10 +171,43 @@ fun PatrolDialog(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun PatrolItem(index: Int, text: String, isChecked: Boolean, isEditMode: Boolean = false, onClick: () -> Unit, onDelete: () -> Unit = {}) {
+private fun PatrolItem(
+    index: Int, 
+    text: String, 
+    isChecked: Boolean, 
+    isEditMode: Boolean = false, 
+    onClick: () -> Unit, 
+    onLongClick: () -> Unit,
+    onDelete: () -> Unit = {}
+) {
     val backgroundColor by animateColorAsState(if (isChecked && !isEditMode) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else Color.White, label = "bgColor")
+    val haptic = LocalHapticFeedback.current
+
     Surface(
-        onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = backgroundColor,
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerInput(isChecked, isEditMode) {
+                if (isEditMode) {
+                    detectTapGestures(onTap = { onClick() })
+                } else {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        val held = withTimeoutOrNull(2000) {
+                            waitForUpOrCancellation()
+                            false // Released before timeout
+                        } ?: true // Timed out (held for 2s)
+
+                        if (held) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongClick()
+                            // Consume the up event to prevent other interactions
+                            waitForUpOrCancellation()
+                        }
+                    }
+                }
+            }, 
+        shape = RoundedCornerShape(24.dp), 
+        color = backgroundColor,
         border = if (isChecked && !isEditMode) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) else null,
         shadowElevation = if (isChecked && !isEditMode) 0.dp else 6.dp
     ) {

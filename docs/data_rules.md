@@ -1,24 +1,28 @@
-# Data Structure & Rules (v2.1)
+# Data Structure & Rules (v2.2)
 
-## 1. 인원수(Capacity) 기반 규칙
-- 모든 `DutyTable`은 `displayName`을 고유 식별자(ID)로 사용합니다. 별도의 `id` 필드는 사용하지 않습니다.
-- `DutyTable`은 `capacity`(2, 3, 4)를 가집니다.
-- `DutySlot`의 `locations` 리스트 길이는 반드시 해당 테이블의 `capacity`와 일치해야 합니다.
-- **UI 연동**: 홈 화면의 "근무 번호" 선택 버튼은 `1..capacity` 범위 내에서만 동적으로 생성됩니다.
+## 1. 데이터 모델 (Data Models)
 
-## 2. 테이블 관리 (생성 및 삭제) 제언
+### A. DutyTable
+- `displayName`: 테이블의 고유 식별자 및 표시 이름.
+- `capacity`: 해당 근무에 투입되는 총 인원 (2, 3, 4명 등).
+- `ptEffect`: PT 근무 시 적용되는 효과 (`LATE_START`, `EARLY_FINISH`).
+- `slots`: 시간대별 근무 정보를 담은 `DutySlot` 리스트.
+- `alertOnFinish`: 해당 테이블에서 종료 알람을 기본으로 사용할지 여부.
 
-현재 편집기는 기존 슬롯의 수정만 지원하나, 테이블 자체를 관리하기 위해 다음과 같은 로직을 제안합니다.
+### B. DutySlot
+- `startTime`, `endTime`: "HH:mm" 형식의 문자열.
+- `locations`: `capacity` 크기와 동일한 장소 리스트. (인덱스 = 근무 번호 - 1)
+- `alerts`: 각 번호별 알람 활성화 여부 리스트.
 
-### A. 테이블 생성 (Add)
-- **방식**: JSON 리스트에 새로운 `DutyTable` 객체를 추가합니다.
-- **필수 값**: 새로운 고유 `id` (예: `CUSTOM_1`), `displayName`, `capacity`.
-- **초기화**: 선택한 인원수(`capacity`)만큼 빈 `LocationType.Off` 슬롯을 기본으로 생성하여 데이터 무결성을 유지합니다.
+## 2. 계산 규칙 (Calculation Rules)
 
-### B. 테이블 삭제 (Delete)
-- **방식**: `id`를 기준으로 리스트에서 제거합니다.
-- **주의사항**: 현재 사용자가 선택하여 사용 중인 테이블을 삭제할 경우, 즉시 `defaultTables`의 첫 번째 항목으로 강제 전환하는 예외 처리가 필요합니다.
+- **PT 시간 조정**:
+    - `LATE_START`: 전체 근무 시작 시점을 30분 뒤로 미룹니다.
+    - `EARLY_FINISH`: 전체 근무 종료 시점을 30분 앞으로 당깁니다.
+- **슬롯 필터링**: PT 적용 후의 유효 근무 시간대와 겹치지 않는 슬롯은 자동으로 제거됩니다.
+- **알람 생성**: `DutyCalculator.getAlarmSchedules`를 통해 시작 알람과 종료 알람(선택)을 생성합니다.
 
-## 3. 데이터 무결성
-- "근무없음"은 문자열 "근무없음" 대신 `LocationType.Off` 객체로 처리합니다.
-- 데이터 저장 시 `prettyPrint = true` 옵션을 사용하여 사용자가 수동으로 JSON을 확인하거나 백업할 때의 가독성을 확보합니다.
+## 3. 데이터 퍼시스턴스
+- **DataStore**: 모든 설정은 `androidx.datastore`를 통해 비동기적으로 관리됩니다.
+- **JSON 직렬화**: 커스텀 편성표 리스트는 `kotlinx-serialization`을 사용하여 JSON 문자열로 변환되어 저장됩니다.
+- **이미지 경로**: `res:` 프리픽스(리소스 이미지) 또는 절대 경로(내부 저장소 이미지)를 파이프(`|`)로 연결하여 관리합니다.

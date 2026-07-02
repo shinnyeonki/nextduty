@@ -7,9 +7,10 @@
 2. **백그라운드 제한 준수**: Android 10(API 29)부터 적용된 백그라운드 Activity 시작 제한을 `FullScreenIntent`와 `Overlay` 권한을 통해 해결합니다.
 
 ## 2. 필수 권한 및 설정
-- **`USE_FULL_SCREEN_INTENT`**: 알림과 함께 Activity를 즉시 실행하기 위해 필요합니다. Android 14부터는 알람/전화 앱에 대해서만 기본 허용되므로, `NotificationManager.canUseFullScreenIntent()`로 확인이 필요합니다.
-- **`SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM`**: 정확한 시간에 알람을 발생시키기 위해 필요합니다.
-- **`SYSTEM_ALERT_WINDOW` (다른 앱 위에 표시)**: 화면이 켜져 있을 때 heads-up 알림(상단 바) 대신 즉시 전체 화면 Activity를 띄우기 위해 사용됩니다.
+- **`USE_FULL_SCREEN_INTENT`**: Android 14(API 34) 이상에서는 `NotificationManager.canUseFullScreenIntent()`로 권한을 확인하고, 필요한 경우 `ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT`로 유도합니다.
+- **`SCHEDULE_EXACT_ALARM`**: 정확한 시간에 알람을 발생시키기 위해 필요하며, `AlarmManager.canScheduleExactAlarms()`로 상태를 확인합니다.
+- **`SYSTEM_ALERT_WINDOW` (다른 앱 위에 표시)**: 화면이 켜져 있을 때 heads-up 알림 대신 즉시 전체 화면 Activity를 띄우기 위해 사용됩니다.
+- **방해 금지 모드 권한**: `NotificationManager.isNotificationPolicyAccessGranted`를 통해 확인하며, 방해 금지 모드에서도 소리가 나도록 설정하는 데 필요합니다.
 
 ## 3. 구현 규칙
 
